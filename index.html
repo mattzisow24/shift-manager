@@ -9,6 +9,12 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Shift Manager</title>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
 <style>
 :root {
   --black: #1a1a1a;
@@ -37,6 +43,42 @@ body {
   -webkit-user-select: none;
 }
 
+/* --- AUTH SCREEN --- */
+.auth-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100dvh;
+  padding: 24px;
+  gap: 20px;
+}
+.auth-screen.hidden { display: none; }
+.auth-logo { height: 80px; }
+.auth-title { font-size: 28px; font-weight: 700; }
+.auth-subtitle { font-size: 14px; color: var(--gray); margin-top: -12px; }
+.auth-btn {
+  padding: 14px;
+  border-radius: 10px;
+  border: none;
+  background: white;
+  color: #333;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.auth-btn:active { opacity: 0.8; }
+.auth-error {
+  color: var(--red);
+  font-size: 13px;
+  text-align: center;
+  min-height: 18px;
+}
+
+/* --- APP WRAPPER --- */
+.app-wrapper { display: none; height: 100dvh; flex-direction: column; }
+.app-wrapper.active { display: flex; }
+
 /* --- NAV --- */
 .nav {
   display: flex;
@@ -64,6 +106,15 @@ body {
 .nav-btn.active {
   background: var(--orange);
   border-color: var(--orange);
+}
+.nav-signout {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: transparent;
+  color: var(--gray);
+  font-size: 11px;
+  cursor: pointer;
 }
 
 /* --- SCREENS --- */
@@ -502,84 +553,111 @@ body {
   align-items: center;
 }
 .auto-fill-bar .btn { font-size: 12px; padding: 4px 10px; }
+
+/* --- SYNC STATUS --- */
+.sync-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #2ecc71;
+  display: inline-block;
+  margin-left: 4px;
+}
+.sync-dot.offline { background: var(--gray); }
+.sync-dot.syncing { background: var(--orange); animation: pulse 1s infinite; }
 </style>
 </head>
 <body>
 
-<nav class="nav">
-  <img src="logo.png" alt="Logo" style="height:36px;width:auto;">
-  <div class="nav-title">Shift Manager</div>
-  <button class="nav-btn active" data-screen="roster">Roster</button>
-  <button class="nav-btn" data-screen="shifts">Shifts</button>
-  <button class="nav-btn" data-screen="transitions">Call Subs</button>
-  <button class="nav-btn" data-screen="playtime">Play Time</button>
-</nav>
-
-<!-- ROSTER -->
-<div class="screen roster-screen active" id="roster-screen">
-  <div class="roster-header">
-    <h2>Team Roster</h2>
-    <span class="roster-count" id="roster-count"></span>
-  </div>
-  <div class="add-player-row">
-    <input type="text" id="new-player-input" placeholder="Add player name..." autocomplete="off" autocorrect="off" />
-    <button class="btn btn-primary" id="add-player-btn">Add</button>
-  </div>
-  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-    <span style="font-size:14px;color:var(--gray);">Tap to check in for today's game</span>
-    <button class="btn btn-sm btn-gold" id="check-all-btn">Check All In</button>
-  </div>
-  <div class="roster-list" id="roster-list"></div>
+<!-- AUTH SCREEN -->
+<div class="auth-screen" id="auth-screen">
+  <img src="logo.png" alt="Logo" class="auth-logo">
+  <div class="auth-title">Shift Manager</div>
+  <div class="auth-subtitle">Sign in to manage the lads</div>
+  <div class="auth-error" id="auth-error"></div>
+  <button class="auth-btn" id="google-signin-btn" style="display:flex;align-items:center;justify-content:center;gap:10px;max-width:360px;width:100%;">
+    <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+    Sign in with Google
+  </button>
 </div>
 
-<!-- SHIFTS -->
-<div class="screen shifts-screen" id="shifts-screen">
-  <div class="shifts-top-bar" id="shifts-top-bar"></div>
-  <div class="field-and-bench">
-    <div class="field-container">
-      <div class="field" id="field"></div>
-      <div class="auto-fill-bar">
-        <button class="btn btn-sm btn-gold" id="auto-fill-btn">Auto-Fill Empty Slots</button>
-        <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;" id="clear-shift-btn">Clear Shift</button>
-        <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;" id="copy-prev-btn">Copy Previous Shift</button>
+<!-- APP (hidden until logged in) -->
+<div class="app-wrapper" id="app-wrapper">
+  <nav class="nav">
+    <img src="logo.png" alt="Logo" style="height:36px;width:auto;">
+    <div class="nav-title">Shift Manager</div>
+    <button class="nav-btn active" data-screen="roster">Roster</button>
+    <button class="nav-btn" data-screen="shifts">Shifts</button>
+    <button class="nav-btn" data-screen="transitions">Call Subs</button>
+    <button class="nav-btn" data-screen="playtime">Play Time</button>
+    <span class="sync-dot" id="sync-dot" title="Synced"></span>
+    <button class="nav-signout" id="signout-btn">Sign Out</button>
+  </nav>
+
+  <!-- ROSTER -->
+  <div class="screen roster-screen active" id="roster-screen">
+    <div class="roster-header">
+      <h2>Team Roster</h2>
+      <span class="roster-count" id="roster-count"></span>
+    </div>
+    <div class="add-player-row">
+      <input type="text" id="new-player-input" placeholder="Add player name..." autocomplete="off" autocorrect="off" />
+      <button class="btn btn-primary" id="add-player-btn">Add</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <span style="font-size:14px;color:var(--gray);">Tap to check in for today's game</span>
+      <button class="btn btn-sm btn-gold" id="check-all-btn">Check All In</button>
+    </div>
+    <div class="roster-list" id="roster-list"></div>
+  </div>
+
+  <!-- SHIFTS -->
+  <div class="screen shifts-screen" id="shifts-screen">
+    <div class="shifts-top-bar" id="shifts-top-bar"></div>
+    <div class="field-and-bench">
+      <div class="field-container">
+        <div class="field" id="field"></div>
+        <div class="auto-fill-bar">
+          <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;" id="clear-shift-btn">Clear Shift</button>
+          <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;" id="copy-prev-btn">Copy Previous Shift</button>
+        </div>
+      </div>
+      <div class="bench-panel">
+        <div class="bench-title" id="bench-title">Bench (0)</div>
+        <div id="bench-list"></div>
       </div>
     </div>
-    <div class="bench-panel">
-      <div class="bench-title" id="bench-title">Bench (0)</div>
-      <div id="bench-list"></div>
+    <div class="timer-bar" id="timer-bar">
+      <div>
+        <div class="timer-display" id="timer-display">0:00</div>
+        <div class="timer-label" id="timer-label">Shift 1</div>
+      </div>
+      <button class="timer-btn start" id="timer-start-btn">Start</button>
+      <button class="timer-btn reset" id="timer-reset-btn">Reset</button>
+      <div class="timer-shift-info" id="timer-shift-info"></div>
     </div>
   </div>
-  <div class="timer-bar" id="timer-bar">
-    <div>
-      <div class="timer-display" id="timer-display">0:00</div>
-      <div class="timer-label" id="timer-label">Shift 1</div>
-    </div>
-    <button class="timer-btn start" id="timer-start-btn">Start</button>
-    <button class="timer-btn reset" id="timer-reset-btn">Reset</button>
-    <div class="timer-shift-info" id="timer-shift-info"></div>
-  </div>
-</div>
 
-<!-- TRANSITIONS -->
-<div class="screen transitions-screen" id="transitions-screen">
-  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-    <h2>Call Substitutions</h2>
-    <div class="transition-nav">
-      <select id="transition-select"></select>
+  <!-- TRANSITIONS -->
+  <div class="screen transitions-screen" id="transitions-screen">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <h2>Call Substitutions</h2>
+      <div class="transition-nav">
+        <select id="transition-select"></select>
+      </div>
     </div>
+    <div class="callout-box" id="callout-box"></div>
   </div>
-  <div class="callout-box" id="callout-box"></div>
-</div>
 
-<!-- PLAYING TIME -->
-<div class="screen playtime-screen" id="playtime-screen">
-  <h2>Playing Time</h2>
-  <table class="playtime-table">
-    <thead>
-      <tr><th>Player</th><th>Shifts</th><th>Est. Minutes</th><th>% of Game</th><th></th></tr>
-    </thead>
-    <tbody id="playtime-body"></tbody>
-  </table>
+  <!-- PLAYING TIME -->
+  <div class="screen playtime-screen" id="playtime-screen">
+    <h2>Playing Time</h2>
+    <table class="playtime-table">
+      <thead>
+        <tr><th>Player</th><th>Shifts</th><th>Est. Minutes</th><th>% of Game</th><th></th></tr>
+      </thead>
+      <tbody id="playtime-body"></tbody>
+    </table>
+  </div>
 </div>
 
 <!-- MODAL -->
@@ -592,6 +670,71 @@ body {
 </div>
 
 <script>
+// ---- FIREBASE INIT ----
+firebase.initializeApp({
+  apiKey: "AIzaSyBGRVuo3FN6kVBcfRO3ikzcGP1jDAL0h1o",
+  authDomain: "river-plate-shift-manager.firebaseapp.com",
+  projectId: "river-plate-shift-manager",
+  storageBucket: "river-plate-shift-manager.firebasestorage.app",
+  messagingSenderId: "301886559365",
+  appId: "1:301886559365:web:4f1ad2f29fae9877c805ec"
+});
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// Enable Firestore offline persistence
+db.enablePersistence({ synchronizeTabs: true }).catch(err => {
+  console.log('Firestore persistence error:', err.code);
+});
+
+// ---- AUTH ----
+const authScreen = document.getElementById('auth-screen');
+const appWrapper = document.getElementById('app-wrapper');
+const authError = document.getElementById('auth-error');
+const googleProvider = new firebase.auth.GoogleAuthProvider();
+
+document.getElementById('google-signin-btn').addEventListener('click', async () => {
+  authError.textContent = '';
+  try {
+    await auth.signInWithPopup(googleProvider);
+  } catch (err) {
+    if (err.code === 'auth/popup-blocked') {
+      // Fallback to redirect for iPad/Safari where popups are blocked
+      await auth.signInWithRedirect(googleProvider);
+    } else if (err.code !== 'auth/popup-closed-by-user') {
+      authError.textContent = err.message;
+    }
+  }
+});
+
+document.getElementById('signout-btn').addEventListener('click', () => {
+  auth.signOut();
+});
+
+// Listen for auth state
+let currentUid = null;
+auth.onAuthStateChanged(user => {
+  if (user) {
+    currentUid = user.uid;
+    authScreen.classList.add('hidden');
+    appWrapper.classList.add('active');
+    startRealtimeSync();
+  } else {
+    currentUid = null;
+    if (unsubscribeListener) { unsubscribeListener(); unsubscribeListener = null; }
+    authScreen.classList.remove('hidden');
+    appWrapper.classList.remove('active');
+  }
+});
+
+// ---- SYNC STATUS ----
+function setSyncStatus(status) {
+  const dot = document.getElementById('sync-dot');
+  dot.className = 'sync-dot' + (status === 'offline' ? ' offline' : status === 'syncing' ? ' syncing' : '');
+  dot.title = status === 'offline' ? 'Offline' : status === 'syncing' ? 'Syncing...' : 'Synced';
+}
+
 // ---- STATE ----
 const DEFAULT_ROSTER = [
   'John', 'Jibby', 'Justin', 'Charlie L', 'Charlie C', 'Emmet', 'Andrew', 'Angel',
@@ -599,7 +742,7 @@ const DEFAULT_ROSTER = [
   'Otto', 'Tom', 'David', 'Greyson'
 ];
 
-let state = loadState();
+let state = defaultState();
 
 function defaultState() {
   return {
@@ -609,27 +752,89 @@ function defaultState() {
     shiftsPerHalf: 3,
     minutesPerHalf: 35,
     shifts: {},
-    timerRunning: false,
     timerElapsed: 0,
-    timerLastTick: null,
     currentShiftIndex: 0,
   };
 }
 
-function loadState() {
-  try {
-    const s = JSON.parse(localStorage.getItem('soccer-subs-state'));
-    if (s) {
-      const merged = { ...defaultState(), ...s, timerRunning: false, timerLastTick: null };
-      if (!merged.roster || merged.roster.length === 0) merged.roster = [...DEFAULT_ROSTER];
-      return merged;
-    }
-  } catch {}
-  return defaultState();
+// Shared team document — all coaches read/write the same data
+const TEAM_DOC = db.collection('teams').doc('river-plate');
+let unsubscribeListener = null;
+let localSave = false; // flag to ignore our own writes from the listener
+
+// Save to Firestore + localStorage
+let saveTimeout = null;
+function saveState() {
+  // Always save to localStorage immediately for offline speed
+  localStorage.setItem('shift-manager-team-state', JSON.stringify(state));
+
+  // Debounce Firestore writes
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(() => {
+    if (!currentUid) return;
+    setSyncStatus('syncing');
+    localSave = true;
+    TEAM_DOC.set({
+      roster: state.roster,
+      checkedIn: state.checkedIn,
+      halves: state.halves,
+      shiftsPerHalf: state.shiftsPerHalf,
+      minutesPerHalf: state.minutesPerHalf,
+      shifts: state.shifts,
+      timerElapsed: state.timerElapsed,
+      currentShiftIndex: state.currentShiftIndex,
+      updatedBy: currentUid,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(() => {
+      setSyncStatus('online');
+    }).catch(() => {
+      setSyncStatus('offline');
+    });
+  }, 500);
 }
 
-function saveState() {
-  localStorage.setItem('soccer-subs-state', JSON.stringify(state));
+// Subscribe to real-time updates from the shared team document
+function startRealtimeSync() {
+  // Load from localStorage first for instant display
+  try {
+    const local = JSON.parse(localStorage.getItem('shift-manager-team-state'));
+    if (local && local.roster) {
+      state = { ...defaultState(), ...local };
+      renderAll();
+    }
+  } catch {}
+
+  // Listen for real-time changes — fires immediately with cached data, then on every update
+  if (unsubscribeListener) unsubscribeListener();
+  unsubscribeListener = TEAM_DOC.onSnapshot(doc => {
+    if (localSave) {
+      // This is our own write echoing back — skip re-render
+      localSave = false;
+      return;
+    }
+    if (doc.exists) {
+      const data = doc.data();
+      state = { ...defaultState(), ...data };
+      if (!state.roster || state.roster.length === 0) state.roster = [...DEFAULT_ROSTER];
+      localStorage.setItem('shift-manager-team-state', JSON.stringify(state));
+      setSyncStatus(doc.metadata.fromCache ? 'offline' : 'online');
+      renderAll();
+    } else {
+      // First time — initialize the shared team doc
+      state = defaultState();
+      saveState();
+      renderAll();
+    }
+  }, err => {
+    console.log('Firestore listener error:', err);
+    setSyncStatus('offline');
+  });
+}
+
+function renderAll() {
+  renderRoster();
+  updateTimerBtn();
+  updateTimerDisplay();
 }
 
 // 4-3-3 formation positions (percentage-based coordinates)
@@ -668,12 +873,12 @@ function renderRoster() {
   const checkedCount = state.checkedIn.length;
   count.textContent = `${state.roster.length} players | ${checkedCount} checked in`;
 
-  list.innerHTML = state.roster.map(name => {
+  list.innerHTML = [...state.roster].sort((a, b) => a.localeCompare(b)).map(name => {
     const checked = state.checkedIn.includes(name);
     return `<div class="roster-card ${checked ? 'checked-in' : ''}" data-name="${esc(name)}">
       <div class="roster-check">${checked ? '✓' : ''}</div>
       <div class="roster-name">${esc(name)}</div>
-      <button class="roster-delete" data-del="${esc(name)}">×</button>
+      <button class="roster-delete" data-del="${esc(name)}">x</button>
     </div>`;
   }).join('');
 
@@ -756,7 +961,6 @@ function renderShiftTabs() {
       html += `<button class="shift-tab ${idx === state.currentShiftIndex ? 'active' : ''}" data-shift="${idx}">Shift ${s + 1}</button>`;
     }
   }
-  // settings
   html += `<span style="margin-left:auto;display:flex;gap:6px;align-items:center;">
     <label style="font-size:12px;color:var(--gray);">Shifts/half:</label>
     <select id="sph-select" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(255,255,255,0.15);color:white;font-size:13px;">
@@ -815,7 +1019,7 @@ function renderBench() {
   const bench = state.checkedIn.filter(n => !onField.has(n));
   benchTitle.textContent = `Bench (${bench.length})`;
 
-  benchList.innerHTML = state.checkedIn.map(name => {
+  benchList.innerHTML = [...state.checkedIn].sort((a, b) => a.localeCompare(b)).map(name => {
     const isOnField = onField.has(name);
     return `<div class="bench-player ${isOnField ? 'on-field' : ''}" data-name="${esc(name)}">${esc(displayName(name))}</div>`;
   }).join('');
@@ -850,12 +1054,11 @@ function openAssignModal(posId) {
 
   title.textContent = `Assign ${pos.label}`;
 
-  // show unassign option if someone is there
   let html = '';
   if (currentPlayer) {
     html += `<div class="modal-player" data-assign="" style="color:var(--red);">Remove ${esc(displayName(currentPlayer))}</div>`;
   }
-  state.checkedIn.forEach(name => {
+  [...state.checkedIn].sort((a, b) => a.localeCompare(b)).forEach(name => {
     const assignedPos = Object.entries(shift).find(([k, v]) => v === name);
     const isCurrent = name === currentPlayer;
     let label = esc(name);
@@ -871,7 +1074,6 @@ function openAssignModal(posId) {
       const name = el.dataset.assign;
       if (!state.shifts[shiftKey(state.currentShiftIndex)]) state.shifts[shiftKey(state.currentShiftIndex)] = {};
       const shift = state.shifts[shiftKey(state.currentShiftIndex)];
-      // remove player from any other position in this shift
       if (name) {
         Object.keys(shift).forEach(k => { if (shift[k] === name) delete shift[k]; });
         shift[assigningPos] = name;
@@ -893,23 +1095,6 @@ document.getElementById('modal-overlay').addEventListener('click', e => {
   if (e.target === e.currentTarget) e.currentTarget.classList.remove('active');
 });
 
-// Auto-fill
-document.getElementById('auto-fill-btn').addEventListener('click', () => {
-  if (!state.shifts[shiftKey(state.currentShiftIndex)]) state.shifts[shiftKey(state.currentShiftIndex)] = {};
-  const shift = state.shifts[shiftKey(state.currentShiftIndex)];
-  const onField = new Set(Object.values(shift));
-  const bench = state.checkedIn.filter(n => !onField.has(n));
-  let bi = 0;
-  POSITIONS.forEach(pos => {
-    if (!shift[pos.id] && bi < bench.length) {
-      shift[pos.id] = bench[bi++];
-    }
-  });
-  saveState();
-  renderField();
-  renderBench();
-});
-
 document.getElementById('clear-shift-btn').addEventListener('click', () => {
   state.shifts[shiftKey(state.currentShiftIndex)] = {};
   saveState();
@@ -928,48 +1113,39 @@ document.getElementById('copy-prev-btn').addEventListener('click', () => {
 
 // ---- TIMER ----
 let timerInterval = null;
+let timerRunning = false;
 
 function shiftDuration() {
   return (state.minutesPerHalf / state.shiftsPerHalf) * 60;
 }
 
 document.getElementById('timer-start-btn').addEventListener('click', () => {
-  if (state.timerRunning) {
-    state.timerRunning = false;
-    state.timerLastTick = null;
+  if (timerRunning) {
+    timerRunning = false;
     clearInterval(timerInterval);
-    saveState();
     updateTimerBtn();
   } else {
-    state.timerRunning = true;
-    state.timerLastTick = Date.now();
-    saveState();
-    startTimerTick();
+    timerRunning = true;
+    let lastTick = Date.now();
+    timerInterval = setInterval(() => {
+      const now = Date.now();
+      state.timerElapsed += (now - lastTick) / 1000;
+      lastTick = now;
+      updateTimerDisplay();
+      checkShiftAlarm();
+    }, 250);
     updateTimerBtn();
   }
 });
 
 document.getElementById('timer-reset-btn').addEventListener('click', () => {
-  state.timerRunning = false;
+  timerRunning = false;
   state.timerElapsed = 0;
-  state.timerLastTick = null;
   clearInterval(timerInterval);
   saveState();
   updateTimerDisplay();
   updateTimerBtn();
 });
-
-function startTimerTick() {
-  clearInterval(timerInterval);
-  timerInterval = setInterval(() => {
-    if (!state.timerRunning) return;
-    const now = Date.now();
-    state.timerElapsed += (now - (state.timerLastTick || now)) / 1000;
-    state.timerLastTick = now;
-    updateTimerDisplay();
-    checkShiftAlarm();
-  }, 250);
-}
 
 function updateTimerDisplay() {
   const display = document.getElementById('timer-display');
@@ -987,7 +1163,7 @@ function updateTimerDisplay() {
 
   display.className = 'timer-display';
   if (remaining < 60 && remaining > 15) display.classList.add('warning');
-  if (remaining <= 15 && state.timerRunning) display.classList.add('danger');
+  if (remaining <= 15 && timerRunning) display.classList.add('danger');
 
   const halfNum = Math.floor(currentShiftNum / state.shiftsPerHalf) + 1;
   const shiftInHalf = (currentShiftNum % state.shiftsPerHalf) + 1;
@@ -1000,7 +1176,7 @@ function updateTimerDisplay() {
 
 function updateTimerBtn() {
   const btn = document.getElementById('timer-start-btn');
-  if (state.timerRunning) {
+  if (timerRunning) {
     btn.textContent = 'Pause';
     btn.className = 'timer-btn pause';
   } else {
@@ -1073,7 +1249,6 @@ function renderTransitionDetail(toIndex) {
 
   let html = '';
 
-  // Big callout format for sideline yelling
   if (comingOff.length > 0) {
     html += `<div class="transition-section">
       <h3 class="off">COMING OFF (${comingOff.length})</h3>
@@ -1164,10 +1339,7 @@ const POS_FULL_NAMES = {
 };
 function fullPos(id) { return POS_FULL_NAMES[id] || id.toUpperCase(); }
 
-// ---- INIT ----
-renderRoster();
-updateTimerBtn();
-
+// ---- SERVICE WORKER ----
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js');
 }
