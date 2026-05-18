@@ -338,6 +338,25 @@ body {
   color: white;
   border-color: #2ecc71;
 }
+.field-slot.drag-over .player-badge {
+  outline: 3px dashed var(--orange);
+  outline-offset: 3px;
+}
+.field-slot.dragging { opacity: 0.4; }
+.drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 200;
+  padding: 6px 14px;
+  border-radius: 10px;
+  background: var(--orange);
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  transform: translate(-50%, -50%);
+}
 
 /* --- BENCH --- */
 .bench-panel {
@@ -1104,6 +1123,9 @@ function renderShiftTabs() {
   });
 }
 
+// ---- DRAG & DROP STATE ----
+let dragState = null; // { sourcePos, playerName, ghost, moved }
+
 function renderField() {
   const field = document.getElementById('field');
   const shift = getShift(state.currentShiftIndex);
@@ -1118,8 +1140,147 @@ function renderField() {
   }).join('');
 
   field.querySelectorAll('.field-slot').forEach(slot => {
-    slot.addEventListener('click', () => openAssignModal(slot.dataset.pos));
+    // --- Touch drag ---
+    slot.addEventListener('touchstart', e => {
+      const posId = slot.dataset.pos;
+      const shift = getShift(state.currentShiftIndex);
+      const player = shift[posId];
+      if (!player) return; // only drag filled slots
+      const touch = e.touches[0];
+      dragState = { sourcePos: posId, playerName: player, ghost: null, moved: false, startX: touch.clientX, startY: touch.clientY };
+    }, { passive: true });
+
+    slot.addEventListener('touchmove', e => {
+      if (!dragState) return;
+      const touch = e.touches[0];
+      const dx = touch.clientX - dragState.startX;
+      const dy = touch.clientY - dragState.startY;
+      // Only start drag after 8px movement to distinguish from tap
+      if (!dragState.moved && Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      e.preventDefault();
+      dragState.moved = true;
+
+      // Create ghost if not yet
+      if (!dragState.ghost) {
+        const ghost = document.createElement('div');
+        ghost.className = 'drag-ghost';
+        ghost.textContent = displayName(dragState.playerName);
+        document.body.appendChild(ghost);
+        dragState.ghost = ghost;
+        slot.classList.add('dragging');
+      }
+      dragState.ghost.style.left = touch.clientX + 'px';
+      dragState.ghost.style.top = touch.clientY + 'px';
+
+      // Highlight drop target
+      field.querySelectorAll('.field-slot').forEach(s => s.classList.remove('drag-over'));
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      const targetSlot = target && target.closest('.field-slot');
+      if (targetSlot && targetSlot.dataset.pos !== dragState.sourcePos) {
+        targetSlot.classList.add('drag-over');
+      }
+    }, { passive: false });
+
+    slot.addEventListener('touchend', e => {
+      if (!dragState) return;
+      if (!dragState.moved) {
+        // It was a tap, not a drag — open modal
+        dragState = null;
+        openAssignModal(slot.dataset.pos);
+        return;
+      }
+      // Find drop target
+      const touch = e.changedTouches[0];
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      const targetSlot = target && target.closest('.field-slot');
+      if (targetSlot && targetSlot.dataset.pos !== dragState.sourcePos) {
+        completeDrop(dragState.sourcePos, targetSlot.dataset.pos);
+      }
+      cleanupDrag();
+    });
+
+    // --- Mouse drag ---
+    slot.addEventListener('mousedown', e => {
+      const posId = slot.dataset.pos;
+      const shift = getShift(state.currentShiftIndex);
+      const player = shift[posId];
+      if (!player) return;
+      e.preventDefault();
+      dragState = { sourcePos: posId, playerName: player, ghost: null, moved: false, startX: e.clientX, startY: e.clientY };
+
+      function onMouseMove(e) {
+        if (!dragState) return;
+        const dx = e.clientX - dragState.startX;
+        const dy = e.clientY - dragState.startY;
+        if (!dragState.moved && Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        dragState.moved = true;
+
+        if (!dragState.ghost) {
+          const ghost = document.createElement('div');
+          ghost.className = 'drag-ghost';
+          ghost.textContent = displayName(dragState.playerName);
+          document.body.appendChild(ghost);
+          dragState.ghost = ghost;
+          slot.classList.add('dragging');
+        }
+        dragState.ghost.style.left = e.clientX + 'px';
+        dragState.ghost.style.top = e.clientY + 'px';
+
+        field.querySelectorAll('.field-slot').forEach(s => s.classList.remove('drag-over'));
+        const target = document.elementFromPoint(e.clientX, e.clientY);
+        const ts = target && target.closest('.field-slot');
+        if (ts && ts.dataset.pos !== dragState.sourcePos) {
+          ts.classList.add('drag-over');
+        }
+      }
+
+      function onMouseUp(e) {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        if (!dragState) return;
+        if (!dragState.moved) {
+          dragState = null;
+          openAssignModal(slot.dataset.pos);
+          return;
+        }
+        const target = document.elementFromPoint(e.clientX, e.clientY);
+        const ts = target && target.closest('.field-slot');
+        if (ts && ts.dataset.pos !== dragState.sourcePos) {
+          completeDrop(dragState.sourcePos, ts.dataset.pos);
+        }
+        cleanupDrag();
+      }
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
   });
+}
+
+function completeDrop(sourcePos, targetPos) {
+  if (!state.shifts[shiftKey(state.currentShiftIndex)]) state.shifts[shiftKey(state.currentShiftIndex)] = {};
+  const shift = state.shifts[shiftKey(state.currentShiftIndex)];
+  const draggedPlayer = shift[sourcePos];
+  const displacedPlayer = shift[targetPos]; // may be undefined (empty slot)
+
+  // Move dragged player to target position
+  shift[targetPos] = draggedPlayer;
+  // Clear source — displaced player goes to bench (just remove from field)
+  delete shift[sourcePos];
+
+  saveState();
+  renderField();
+  renderBench();
+}
+
+function cleanupDrag() {
+  if (dragState && dragState.ghost) {
+    dragState.ghost.remove();
+  }
+  document.querySelectorAll('.field-slot').forEach(s => {
+    s.classList.remove('dragging', 'drag-over');
+  });
+  dragState = null;
 }
 
 function renderBench() {
