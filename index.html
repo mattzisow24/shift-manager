@@ -564,6 +564,117 @@ body {
 }
 .sync-dot.offline { background: var(--gray); }
 .sync-dot.syncing { background: var(--orange); animation: pulse 1s infinite; }
+
+/* ==============================
+   PHONE-FRIENDLY RESPONSIVE
+   ============================== */
+@media (max-width: 600px) {
+  /* --- NAV: scrollable row, smaller buttons --- */
+  .nav {
+    padding: 6px 10px;
+    gap: 6px;
+    height: auto;
+    min-height: 44px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+  }
+  .nav-title { font-size: 14px; margin-right: 8px; min-width: max-content; }
+  .nav-btn { padding: 5px 10px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
+  .nav-signout { font-size: 10px; padding: 3px 8px; flex-shrink: 0; }
+  .nav img { height: 28px !important; }
+
+  /* --- SCREENS: allow scroll --- */
+  .screen { height: calc(100dvh - 44px); }
+
+  /* --- ROSTER --- */
+  .roster-screen { padding: 12px; gap: 10px; }
+  .roster-list { grid-template-columns: 1fr; }
+  .roster-header h2 { font-size: 17px; }
+
+  /* --- SHIFTS: stack field + bench vertically --- */
+  .field-and-bench {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .field-container {
+    padding: 8px;
+    flex: none;
+  }
+  .field {
+    aspect-ratio: 1.1;
+    max-width: 100%;
+  }
+  .field-slot {
+    width: 58px;
+    min-height: 36px;
+  }
+  .field-slot .pos-label { font-size: 8px; }
+  .field-slot .player-badge { font-size: 11px; min-width: 52px; padding: 3px 6px; }
+
+  .bench-panel {
+    width: 100%;
+    max-height: 160px;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 8px 12px;
+  }
+  #bench-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .bench-player { padding: 6px 10px; font-size: 13px; }
+
+  .auto-fill-bar { justify-content: center; }
+
+  /* --- SHIFTS TOP BAR: scrollable --- */
+  .shifts-top-bar {
+    padding: 6px 10px;
+    gap: 6px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+  }
+  .shift-tab { padding: 5px 10px; font-size: 11px; white-space: nowrap; flex-shrink: 0; }
+  .half-label { font-size: 10px; white-space: nowrap; flex-shrink: 0; }
+
+  /* --- TIMER BAR: wrap on phone --- */
+  .timer-bar {
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    gap: 8px;
+  }
+  .timer-display { font-size: 22px; min-width: 70px; }
+  .timer-label { font-size: 11px; }
+  .timer-btn { padding: 6px 12px; font-size: 13px; }
+  .timer-shift-info { margin-left: 0; font-size: 12px; text-align: left; width: 100%; }
+
+  /* --- CALL SUBS / TRANSITIONS --- */
+  .transitions-screen { padding: 12px; gap: 12px; }
+  .transitions-screen h2 { font-size: 17px; }
+  .callout-big { font-size: 20px; }
+  .callout-box { padding: 12px; }
+  .transition-nav select { font-size: 14px; padding: 6px 10px; }
+
+  /* --- PLAYING TIME TABLE: horizontal scroll --- */
+  .playtime-screen { padding: 12px; }
+  .playtime-screen h2 { font-size: 17px; }
+  .playtime-table { font-size: 12px; display: block; overflow-x: auto; }
+  .playtime-table th { padding: 6px 8px; font-size: 10px; white-space: nowrap; }
+  .playtime-table td { padding: 6px 8px; white-space: nowrap; }
+  .playtime-bar-bg { min-width: 60px; }
+
+  /* --- MODAL: wider on phone --- */
+  .modal { width: 95%; padding: 16px; }
+  .modal h3 { font-size: 16px; }
+  .modal-player { padding: 10px 12px; font-size: 15px; }
+
+  /* --- AUTH SCREEN --- */
+  .auth-logo { height: 60px; }
+  .auth-title { font-size: 22px; }
+  .auth-btn { font-size: 14px; padding: 12px; }
+}
 </style>
 </head>
 <body>
