@@ -1125,6 +1125,7 @@ function renderShiftTabs() {
 
 // ---- DRAG & DROP STATE ----
 let dragState = null; // { sourcePos, playerName, ghost, moved }
+let dragJustFinished = false; // suppress click after a completed drag
 
 function renderField() {
   const field = document.getElementById('field');
@@ -1199,12 +1200,18 @@ function renderField() {
       cleanupDrag();
     });
 
+    // Click handler — opens modal for taps (both empty and filled slots)
+    slot.addEventListener('click', e => {
+      if (dragJustFinished) { dragJustFinished = false; return; }
+      openAssignModal(slot.dataset.pos);
+    });
+
     // --- Mouse drag ---
     slot.addEventListener('mousedown', e => {
       const posId = slot.dataset.pos;
       const shift = getShift(state.currentShiftIndex);
       const player = shift[posId];
-      if (!player) return;
+      if (!player) return; // empty slot — let click handle it
       e.preventDefault();
       dragState = { sourcePos: posId, playerName: player, ghost: null, moved: false, startX: e.clientX, startY: e.clientY };
 
@@ -1239,8 +1246,8 @@ function renderField() {
         document.removeEventListener('mouseup', onMouseUp);
         if (!dragState) return;
         if (!dragState.moved) {
+          // Was a tap — click handler will fire and open modal
           dragState = null;
-          openAssignModal(slot.dataset.pos);
           return;
         }
         const target = document.elementFromPoint(e.clientX, e.clientY);
@@ -1280,7 +1287,10 @@ function cleanupDrag() {
   document.querySelectorAll('.field-slot').forEach(s => {
     s.classList.remove('dragging', 'drag-over');
   });
+  dragJustFinished = true;
   dragState = null;
+  // Reset flag after click event fires (click fires ~0ms after mouseup/touchend)
+  setTimeout(() => { dragJustFinished = false; }, 50);
 }
 
 function renderBench() {
