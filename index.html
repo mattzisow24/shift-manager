@@ -1183,14 +1183,21 @@ function renderField() {
     }, { passive: false });
 
     slot.addEventListener('touchend', e => {
-      if (!dragState) return;
+      // Empty slot tap — no drag was started, open modal
+      if (!dragState) {
+        e.preventDefault(); // prevent delayed click / ghost-click
+        openAssignModal(slot.dataset.pos);
+        return;
+      }
       if (!dragState.moved) {
-        // It was a tap, not a drag — open modal
+        // Filled slot tap (no movement) — open modal
+        e.preventDefault();
         dragState = null;
         openAssignModal(slot.dataset.pos);
         return;
       }
-      // Find drop target
+      // Completed drag — find drop target
+      e.preventDefault();
       const touch = e.changedTouches[0];
       const target = document.elementFromPoint(touch.clientX, touch.clientY);
       const targetSlot = target && target.closest('.field-slot');
