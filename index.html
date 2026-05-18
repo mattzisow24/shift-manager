@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Shift Manager">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Shift Manager</title>
+<style>
+:root {
+  --black: #1a1a1a;
+  --black-mid: #2a2a2a;
+  --black-light: #3a3a3a;
+  --green-field: #52b788;
+  --orange: #e8651a;
+  --orange-light: #f07830;
+  --white: #ffffff;
+  --gray-light: #e9ecef;
+  --gray: #adb5bd;
+  --gray-dark: #6c757d;
+  --red: #e63946;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', sans-serif;
+  background: var(--black);
+  color: var(--white);
+  overflow: hidden;
+  height: 100vh;
+  height: 100dvh;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* --- NAV --- */
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(0,0,0,0.3);
+  height: 48px;
+}
+.nav-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-right: auto;
+}
+.nav-btn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 2px solid rgba(255,255,255,0.3);
+  background: transparent;
+  color: var(--white);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.nav-btn.active {
+  background: var(--orange);
+  border-color: var(--orange);
+}
+
+/* --- SCREENS --- */
+.screen { display: none; height: calc(100dvh - 48px); overflow-y: auto; }
+.screen.active { display: flex; flex-direction: column; }
+
+/* --- ROSTER SCREEN --- */
+.roster-screen { padding: 16px; gap: 12px; }
+.roster-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.roster-header h2 { font-size: 20px; }
+.add-player-row { display: flex; gap: 8px; }
+.add-player-row input {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: none;
+  font-size: 16px;
+  background: rgba(255,255,255,0.15);
+  color: white;
+}
+.add-player-row input::placeholder { color: rgba(255,255,255,0.5); }
+.btn {
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-primary { background: var(--orange); color: white; }
+.btn-danger { background: var(--red); color: white; }
+.btn-gold { background: var(--orange); color: white; }
+.btn-sm { padding: 6px 12px; font-size: 13px; }
+
+.roster-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+  flex: 1;
+  overflow-y: auto;
+}
+.roster-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.1);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.roster-card.checked-in { background: var(--orange); }
+.roster-check {
+  width: 24px; height: 24px;
+  border-radius: 6px;
+  border: 2px solid rgba(255,255,255,0.4);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.roster-card.checked-in .roster-check {
+  background: white;
+  border-color: white;
+  color: var(--orange);
+}
+.roster-name { font-size: 16px; font-weight: 500; flex: 1; }
+.roster-delete {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.15);
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.roster-count { font-size: 14px; color: var(--gray); }
+
+/* --- GAME SETUP --- */
+.setup-screen { padding: 16px; gap: 16px; }
+.setup-screen h2 { font-size: 20px; }
+.setup-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.setup-row label { font-size: 14px; font-weight: 600; min-width: 120px; }
+.setup-row select, .setup-row input[type="number"] {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  font-size: 16px;
+  background: rgba(255,255,255,0.15);
+  color: white;
+}
+.setup-row option { color: black; }
+
+/* --- SHIFTS SCREEN --- */
+.shifts-screen.active { display: flex; flex-direction: column; }
+.shifts-top-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(0,0,0,0.2);
+  flex-wrap: wrap;
+}
+.shift-tab {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 2px solid rgba(255,255,255,0.2);
+  background: transparent;
+  color: rgba(255,255,255,0.7);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.shift-tab.active { background: var(--orange); color: white; border-color: var(--orange); }
+.half-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--gray);
+  margin-right: 4px;
+}
+
+.field-and-bench {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* --- FIELD --- */
+.field-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  position: relative;
+}
+.field {
+  width: 100%;
+  max-width: 600px;
+  aspect-ratio: 1.4;
+  background: linear-gradient(180deg, var(--green-field) 0%, #3da77a 100%);
+  border-radius: 12px;
+  border: 3px solid rgba(255,255,255,0.4);
+  position: relative;
+  overflow: hidden;
+}
+.field::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 10%;
+  right: 10%;
+  height: 2px;
+  background: rgba(255,255,255,0.25);
+  pointer-events: none;
+}
+.field::after {
+  content: '';
+  position: absolute;
+  top: 25%;
+  left: 30%;
+  right: 30%;
+  bottom: 25%;
+  border: 2px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  pointer-events: none;
+}
+
+.field-slot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 72px;
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  z-index: 10;
+}
+.field-slot .pos-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255,255,255,0.7);
+}
+.field-slot .player-badge {
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  min-width: 64px;
+  border: 2px dashed rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.5);
+  background: rgba(0,0,0,0.2);
+  white-space: nowrap;
+}
+.field-slot .player-badge.filled {
+  background: rgba(255,255,255,0.95);
+  color: var(--black);
+  border: 2px solid white;
+}
+.field-slot .player-badge.highlight-stay {
+  background: var(--gray-dark);
+  color: white;
+  border-color: var(--gray-dark);
+}
+.field-slot .player-badge.highlight-move {
+  background: var(--orange);
+  color: white;
+  border-color: var(--orange);
+}
+.field-slot .player-badge.highlight-on {
+  background: #2ecc71;
+  color: white;
+  border-color: #2ecc71;
+}
+
+/* --- BENCH --- */
+.bench-panel {
+  width: 200px;
+  background: rgba(0,0,0,0.3);
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  gap: 6px;
+  overflow-y: auto;
+}
+.bench-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--gray);
+  margin-bottom: 4px;
+}
+.bench-player {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.1);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.bench-player:active { background: rgba(255,255,255,0.25); }
+.bench-player.selected {
+  background: var(--orange);
+  color: white;
+}
+.bench-player.on-field {
+  opacity: 0.3;
+  pointer-events: none;
+  text-decoration: line-through;
+}
+
+/* --- TRANSITIONS SCREEN --- */
+.transitions-screen { padding: 16px; gap: 16px; overflow-y: auto; }
+.transitions-screen h2 { font-size: 20px; }
+.transition-section { margin-bottom: 12px; }
+.transition-section h3 {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.2);
+}
+.transition-section h3.off { color: var(--red); }
+.transition-section h3.stay { color: var(--gray); }
+.transition-section h3.move { color: var(--orange); }
+.transition-section h3.on { color: #2ecc71; }
+.transition-item {
+  padding: 8px 14px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  font-size: 16px;
+  font-weight: 500;
+}
+.transition-item.off { background: rgba(230,57,70,0.2); }
+.transition-item.stay { background: rgba(72,149,239,0.2); }
+.transition-item.move { background: rgba(232,101,26,0.2); }
+.transition-item.on { background: rgba(46,204,113,0.2); }
+.transition-arrow { color: var(--gray); font-size: 13px; }
+.no-changes { color: var(--gray); font-style: italic; }
+.transition-nav { display: flex; gap: 8px; align-items: center; }
+.transition-nav select {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  font-size: 16px;
+  background: rgba(255,255,255,0.15);
+  color: white;
+  flex: 1;
+}
+.transition-nav option { color: black; }
+.callout-box {
+  background: rgba(0,0,0,0.3);
+  border-radius: 12px;
+  padding: 16px;
+  flex: 1;
+  overflow-y: auto;
+}
+.callout-big {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+/* --- TIMER --- */
+.timer-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: rgba(0,0,0,0.4);
+}
+.timer-display {
+  font-size: 28px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 90px;
+}
+.timer-display.warning { color: var(--orange); }
+.timer-display.danger { color: var(--red); animation: pulse 1s infinite; }
+@keyframes pulse { 50% { opacity: 0.5; } }
+.timer-label { font-size: 13px; color: var(--gray); }
+.timer-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.timer-btn.start { background: #2ecc71; color: white; }
+.timer-btn.pause { background: var(--orange); color: white; }
+.timer-btn.reset { background: rgba(255,255,255,0.15); color: white; }
+.timer-shift-info { margin-left: auto; font-size: 13px; color: var(--gray); text-align: right; }
+
+/* --- PLAYING TIME SCREEN --- */
+.playtime-screen { padding: 16px; gap: 12px; overflow-y: auto; }
+.playtime-screen h2 { font-size: 20px; }
+.playtime-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.playtime-table th {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--gray);
+  border-bottom: 1px solid rgba(255,255,255,0.2);
+}
+.playtime-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.playtime-bar-bg {
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.1);
+  min-width: 100px;
+}
+.playtime-bar {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--orange);
+  transition: width 0.3s;
+}
+.playtime-bar.low { background: var(--red); }
+.playtime-bar.mid { background: var(--orange-light); }
+
+/* --- MODAL --- */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: #2d3748;
+  border-radius: 16px;
+  padding: 20px;
+  width: 90%;
+  max-width: 400px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.modal h3 { font-size: 18px; margin-bottom: 12px; }
+.modal-player {
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  font-size: 16px;
+  cursor: pointer;
+  background: rgba(255,255,255,0.1);
+  transition: background 0.15s;
+}
+.modal-player:active { background: rgba(255,255,255,0.2); }
+.modal-player.current { background: var(--orange); }
+.modal-close {
+  margin-top: 12px;
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  background: rgba(255,255,255,0.15);
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* --- AUTO-FILL --- */
+.auto-fill-bar {
+  display: flex;
+  gap: 8px;
+  padding: 4px 0;
+  align-items: center;
+}
+.auto-fill-bar .btn { font-size: 12px; padding: 4px 10px; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <img src="logo.png" alt="Logo" style="height:36px;width:auto;">
+  <div class="nav-title">Shift Manager</div>
+  <button class="nav-btn active" data-screen="roster">Roster</button>
+  <button class="nav-btn" data-screen="shifts">Shifts</button>
+  <button class="nav-btn" data-screen="transitions">Call Subs</button>
+  <button class="nav-btn" data-screen="playtime">Play Time</button>
+</nav>
+
+<!-- ROSTER -->
+<div class="screen roster-screen active" id="roster-screen">
+  <div class="roster-header">
+    <h2>Team Roster</h2>
+    <span class="roster-count" id="roster-count"></span>
+  </div>
+  <div class="add-player-row">
+    <input type="text" id="new-player-input" placeholder="Add player name..." autocomplete="off" autocorrect="off" />
+    <button class="btn btn-primary" id="add-player-btn">Add</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <span style="font-size:14px;color:var(--gray);">Tap to check in for today's game</span>
+    <button class="btn btn-sm btn-gold" id="check-all-btn">Check All In</button>
+  </div>
+  <div class="roster-list" id="roster-list"></div>
+</div>
+
+<!-- SHIFTS -->
+<div class="screen shifts-screen" id="shifts-screen">
+  <div class="shifts-top-bar" id="shifts-top-bar"></div>
+  <div class="field-and-bench">
+    <div class="field-container">
+      <div class="field" id="field"></div>
+      <div class="auto-fill-bar">
+        <button class="btn btn-sm btn-gold" id="auto-fill-btn">Auto-Fill Empty Slots</button>
+        <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;" id="clear-shift-btn">Clear Shift</button>
+        <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;" id="copy-prev-btn">Copy Previous Shift</button>
+      </div>
+    </div>
+    <div class="bench-panel">
+      <div class="bench-title" id="bench-title">Bench (0)</div>
+      <div id="bench-list"></div>
+    </div>
+  </div>
+  <div class="timer-bar" id="timer-bar">
+    <div>
+      <div class="timer-display" id="timer-display">0:00</div>
+      <div class="timer-label" id="timer-label">Shift 1</div>
+    </div>
+    <button class="timer-btn start" id="timer-start-btn">Start</button>
+    <button class="timer-btn reset" id="timer-reset-btn">Reset</button>
+    <div class="timer-shift-info" id="timer-shift-info"></div>
+  </div>
+</div>
+
+<!-- TRANSITIONS -->
+<div class="screen transitions-screen" id="transitions-screen">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <h2>Call Substitutions</h2>
+    <div class="transition-nav">
+      <select id="transition-select"></select>
+    </div>
+  </div>
+  <div class="callout-box" id="callout-box"></div>
+</div>
+
+<!-- PLAYING TIME -->
+<div class="screen playtime-screen" id="playtime-screen">
+  <h2>Playing Time</h2>
+  <table class="playtime-table">
+    <thead>
+      <tr><th>Player</th><th>Shifts</th><th>Est. Minutes</th><th>% of Game</th><th></th></tr>
+    </thead>
+    <tbody id="playtime-body"></tbody>
+  </table>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal">
+    <h3 id="modal-title">Assign Player</h3>
+    <div id="modal-players"></div>
+    <button class="modal-close" id="modal-close">Cancel</button>
+  </div>
+</div>
+
+<script>
+// ---- STATE ----
+const DEFAULT_ROSTER = [
+  'John', 'Jibby', 'Justin', 'Charlie L', 'Charlie C', 'Emmet', 'Andrew', 'Angel',
+  'Sam', 'Theo K', 'Theo F', 'Colby', 'Duanze', 'Eamon', 'Felipe', 'Guillermo',
+  'Otto', 'Tom', 'David', 'Greyson'
+];
+
+let state = loadState();
+
+function defaultState() {
+  return {
+    roster: [...DEFAULT_ROSTER],
+    checkedIn: [],
+    halves: 2,
+    shiftsPerHalf: 3,
+    minutesPerHalf: 35,
+    shifts: {},
+    timerRunning: false,
+    timerElapsed: 0,
+    timerLastTick: null,
+    currentShiftIndex: 0,
+  };
+}
+
+function loadState() {
+  try {
+    const s = JSON.parse(localStorage.getItem('soccer-subs-state'));
+    if (s) {
+      const merged = { ...defaultState(), ...s, timerRunning: false, timerLastTick: null };
+      if (!merged.roster || merged.roster.length === 0) merged.roster = [...DEFAULT_ROSTER];
+      return merged;
+    }
+  } catch {}
+  return defaultState();
+}
+
+function saveState() {
+  localStorage.setItem('soccer-subs-state', JSON.stringify(state));
+}
+
+// 4-3-3 formation positions (percentage-based coordinates)
+const POSITIONS = [
+  { id: 'gk',  label: 'GK',  x: 50, y: 90 },
+  { id: 'lb',  label: 'LB',  x: 15, y: 72 },
+  { id: 'lcb', label: 'LCB', x: 38, y: 75 },
+  { id: 'rcb', label: 'RCB', x: 62, y: 75 },
+  { id: 'rb',  label: 'RB',  x: 85, y: 72 },
+  { id: 'lm',  label: 'LM',  x: 22, y: 47 },
+  { id: 'cdm', label: 'CDM', x: 50, y: 52 },
+  { id: 'rm',  label: 'RM',  x: 78, y: 47 },
+  { id: 'lw',  label: 'LW',  x: 18, y: 20 },
+  { id: 'st',  label: 'ST',  x: 50, y: 15 },
+  { id: 'rw',  label: 'RW',  x: 82, y: 20 },
+];
+
+// ---- NAVIGATION ----
+const screens = { roster: 'roster-screen', shifts: 'shifts-screen', transitions: 'transitions-screen', playtime: 'playtime-screen' };
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(screens[btn.dataset.screen]).classList.add('active');
+    if (btn.dataset.screen === 'shifts') renderShifts();
+    if (btn.dataset.screen === 'transitions') renderTransitions();
+    if (btn.dataset.screen === 'playtime') renderPlaytime();
+  });
+});
+
+// ---- ROSTER ----
+function renderRoster() {
+  const list = document.getElementById('roster-list');
+  const count = document.getElementById('roster-count');
+  const checkedCount = state.checkedIn.length;
+  count.textContent = `${state.roster.length} players | ${checkedCount} checked in`;
+
+  list.innerHTML = state.roster.map(name => {
+    const checked = state.checkedIn.includes(name);
+    return `<div class="roster-card ${checked ? 'checked-in' : ''}" data-name="${esc(name)}">
+      <div class="roster-check">${checked ? '✓' : ''}</div>
+      <div class="roster-name">${esc(name)}</div>
+      <button class="roster-delete" data-del="${esc(name)}">×</button>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.roster-card').forEach(card => {
+    card.addEventListener('click', e => {
+      if (e.target.closest('.roster-delete')) return;
+      const name = card.dataset.name;
+      if (state.checkedIn.includes(name)) {
+        state.checkedIn = state.checkedIn.filter(n => n !== name);
+      } else {
+        state.checkedIn.push(name);
+      }
+      saveState();
+      renderRoster();
+    });
+  });
+
+  list.querySelectorAll('.roster-delete').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const name = btn.dataset.del;
+      if (confirm(`Remove ${name} from roster?`)) {
+        state.roster = state.roster.filter(n => n !== name);
+        state.checkedIn = state.checkedIn.filter(n => n !== name);
+        Object.keys(state.shifts).forEach(k => {
+          const shift = state.shifts[k];
+          Object.keys(shift).forEach(pos => { if (shift[pos] === name) delete shift[pos]; });
+        });
+        saveState();
+        renderRoster();
+      }
+    });
+  });
+}
+
+document.getElementById('add-player-btn').addEventListener('click', addPlayer);
+document.getElementById('new-player-input').addEventListener('keydown', e => { if (e.key === 'Enter') addPlayer(); });
+
+function addPlayer() {
+  const input = document.getElementById('new-player-input');
+  const name = input.value.trim();
+  if (!name) return;
+  if (state.roster.includes(name)) { alert('Player already exists'); return; }
+  state.roster.push(name);
+  state.checkedIn.push(name);
+  input.value = '';
+  saveState();
+  renderRoster();
+}
+
+document.getElementById('check-all-btn').addEventListener('click', () => {
+  if (state.checkedIn.length === state.roster.length) {
+    state.checkedIn = [];
+  } else {
+    state.checkedIn = [...state.roster];
+  }
+  saveState();
+  renderRoster();
+});
+
+// ---- SHIFTS ----
+function totalShifts() { return state.halves * state.shiftsPerHalf; }
+function shiftKey(i) { return `shift_${i}`; }
+function getShift(i) { return state.shifts[shiftKey(i)] || {}; }
+
+function renderShifts() {
+  renderShiftTabs();
+  renderField();
+  renderBench();
+  updateTimerDisplay();
+}
+
+function renderShiftTabs() {
+  const bar = document.getElementById('shifts-top-bar');
+  let html = '';
+  for (let h = 0; h < state.halves; h++) {
+    html += `<span class="half-label">${h === 0 ? '1st' : '2nd'} Half</span>`;
+    for (let s = 0; s < state.shiftsPerHalf; s++) {
+      const idx = h * state.shiftsPerHalf + s;
+      html += `<button class="shift-tab ${idx === state.currentShiftIndex ? 'active' : ''}" data-shift="${idx}">Shift ${s + 1}</button>`;
+    }
+  }
+  // settings
+  html += `<span style="margin-left:auto;display:flex;gap:6px;align-items:center;">
+    <label style="font-size:12px;color:var(--gray);">Shifts/half:</label>
+    <select id="sph-select" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(255,255,255,0.15);color:white;font-size:13px;">
+      ${[2,3,4].map(n => `<option value="${n}" ${n === state.shiftsPerHalf ? 'selected' : ''}>${n}</option>`).join('')}
+    </select>
+    <label style="font-size:12px;color:var(--gray);">Min/half:</label>
+    <input type="number" id="mph-input" value="${state.minutesPerHalf}" min="10" max="45" style="width:50px;padding:4px 8px;border-radius:6px;border:none;background:rgba(255,255,255,0.15);color:white;font-size:13px;" />
+  </span>`;
+  bar.innerHTML = html;
+
+  bar.querySelectorAll('.shift-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      state.currentShiftIndex = parseInt(tab.dataset.shift);
+      saveState();
+      renderShifts();
+    });
+  });
+
+  document.getElementById('sph-select').addEventListener('change', e => {
+    state.shiftsPerHalf = parseInt(e.target.value);
+    if (state.currentShiftIndex >= totalShifts()) state.currentShiftIndex = totalShifts() - 1;
+    saveState();
+    renderShifts();
+  });
+
+  document.getElementById('mph-input').addEventListener('change', e => {
+    state.minutesPerHalf = parseInt(e.target.value) || 35;
+    saveState();
+    renderShifts();
+  });
+}
+
+function renderField() {
+  const field = document.getElementById('field');
+  const shift = getShift(state.currentShiftIndex);
+
+  field.innerHTML = POSITIONS.map(pos => {
+    const player = shift[pos.id];
+    const filledClass = player ? 'filled' : '';
+    return `<div class="field-slot" style="left:${pos.x}%;top:${pos.y}%;" data-pos="${pos.id}">
+      <span class="pos-label">${pos.label}</span>
+      <span class="player-badge ${filledClass}">${player ? esc(displayName(player)) : '—'}</span>
+    </div>`;
+  }).join('');
+
+  field.querySelectorAll('.field-slot').forEach(slot => {
+    slot.addEventListener('click', () => openAssignModal(slot.dataset.pos));
+  });
+}
+
+function renderBench() {
+  const benchList = document.getElementById('bench-list');
+  const benchTitle = document.getElementById('bench-title');
+  const shift = getShift(state.currentShiftIndex);
+  const onField = new Set(Object.values(shift));
+  const bench = state.checkedIn.filter(n => !onField.has(n));
+  benchTitle.textContent = `Bench (${bench.length})`;
+
+  benchList.innerHTML = state.checkedIn.map(name => {
+    const isOnField = onField.has(name);
+    return `<div class="bench-player ${isOnField ? 'on-field' : ''}" data-name="${esc(name)}">${esc(displayName(name))}</div>`;
+  }).join('');
+
+  benchList.querySelectorAll('.bench-player:not(.on-field)').forEach(el => {
+    el.addEventListener('click', () => {
+      const name = el.dataset.name;
+      const shift = getShift(state.currentShiftIndex);
+      const emptyPos = POSITIONS.find(p => !shift[p.id]);
+      if (emptyPos) {
+        if (!state.shifts[shiftKey(state.currentShiftIndex)]) state.shifts[shiftKey(state.currentShiftIndex)] = {};
+        state.shifts[shiftKey(state.currentShiftIndex)][emptyPos.id] = name;
+        saveState();
+        renderField();
+        renderBench();
+      }
+    });
+  });
+}
+
+// Assign modal
+let assigningPos = null;
+
+function openAssignModal(posId) {
+  assigningPos = posId;
+  const overlay = document.getElementById('modal-overlay');
+  const title = document.getElementById('modal-title');
+  const playersList = document.getElementById('modal-players');
+  const pos = POSITIONS.find(p => p.id === posId);
+  const shift = getShift(state.currentShiftIndex);
+  const currentPlayer = shift[posId];
+
+  title.textContent = `Assign ${pos.label}`;
+
+  // show unassign option if someone is there
+  let html = '';
+  if (currentPlayer) {
+    html += `<div class="modal-player" data-assign="" style="color:var(--red);">Remove ${esc(displayName(currentPlayer))}</div>`;
+  }
+  state.checkedIn.forEach(name => {
+    const assignedPos = Object.entries(shift).find(([k, v]) => v === name);
+    const isCurrent = name === currentPlayer;
+    let label = esc(name);
+    if (assignedPos && !isCurrent) label += ` <span style="color:var(--gray);font-size:12px;">(${assignedPos[0].toUpperCase()})</span>`;
+    html += `<div class="modal-player ${isCurrent ? 'current' : ''}" data-assign="${esc(name)}">${label}</div>`;
+  });
+
+  playersList.innerHTML = html;
+  overlay.classList.add('active');
+
+  playersList.querySelectorAll('.modal-player').forEach(el => {
+    el.addEventListener('click', () => {
+      const name = el.dataset.assign;
+      if (!state.shifts[shiftKey(state.currentShiftIndex)]) state.shifts[shiftKey(state.currentShiftIndex)] = {};
+      const shift = state.shifts[shiftKey(state.currentShiftIndex)];
+      // remove player from any other position in this shift
+      if (name) {
+        Object.keys(shift).forEach(k => { if (shift[k] === name) delete shift[k]; });
+        shift[assigningPos] = name;
+      } else {
+        delete shift[assigningPos];
+      }
+      saveState();
+      overlay.classList.remove('active');
+      renderField();
+      renderBench();
+    });
+  });
+}
+
+document.getElementById('modal-close').addEventListener('click', () => {
+  document.getElementById('modal-overlay').classList.remove('active');
+});
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) e.currentTarget.classList.remove('active');
+});
+
+// Auto-fill
+document.getElementById('auto-fill-btn').addEventListener('click', () => {
+  if (!state.shifts[shiftKey(state.currentShiftIndex)]) state.shifts[shiftKey(state.currentShiftIndex)] = {};
+  const shift = state.shifts[shiftKey(state.currentShiftIndex)];
+  const onField = new Set(Object.values(shift));
+  const bench = state.checkedIn.filter(n => !onField.has(n));
+  let bi = 0;
+  POSITIONS.forEach(pos => {
+    if (!shift[pos.id] && bi < bench.length) {
+      shift[pos.id] = bench[bi++];
+    }
+  });
+  saveState();
+  renderField();
+  renderBench();
+});
+
+document.getElementById('clear-shift-btn').addEventListener('click', () => {
+  state.shifts[shiftKey(state.currentShiftIndex)] = {};
+  saveState();
+  renderField();
+  renderBench();
+});
+
+document.getElementById('copy-prev-btn').addEventListener('click', () => {
+  if (state.currentShiftIndex === 0) { alert('No previous shift'); return; }
+  const prev = getShift(state.currentShiftIndex - 1);
+  state.shifts[shiftKey(state.currentShiftIndex)] = { ...prev };
+  saveState();
+  renderField();
+  renderBench();
+});
+
+// ---- TIMER ----
+let timerInterval = null;
+
+function shiftDuration() {
+  return (state.minutesPerHalf / state.shiftsPerHalf) * 60;
+}
+
+document.getElementById('timer-start-btn').addEventListener('click', () => {
+  if (state.timerRunning) {
+    state.timerRunning = false;
+    state.timerLastTick = null;
+    clearInterval(timerInterval);
+    saveState();
+    updateTimerBtn();
+  } else {
+    state.timerRunning = true;
+    state.timerLastTick = Date.now();
+    saveState();
+    startTimerTick();
+    updateTimerBtn();
+  }
+});
+
+document.getElementById('timer-reset-btn').addEventListener('click', () => {
+  state.timerRunning = false;
+  state.timerElapsed = 0;
+  state.timerLastTick = null;
+  clearInterval(timerInterval);
+  saveState();
+  updateTimerDisplay();
+  updateTimerBtn();
+});
+
+function startTimerTick() {
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    if (!state.timerRunning) return;
+    const now = Date.now();
+    state.timerElapsed += (now - (state.timerLastTick || now)) / 1000;
+    state.timerLastTick = now;
+    updateTimerDisplay();
+    checkShiftAlarm();
+  }, 250);
+}
+
+function updateTimerDisplay() {
+  const display = document.getElementById('timer-display');
+  const label = document.getElementById('timer-label');
+  const info = document.getElementById('timer-shift-info');
+  const dur = shiftDuration();
+  const gameElapsed = state.timerElapsed;
+  const currentShiftNum = Math.min(Math.floor(gameElapsed / dur), totalShifts() - 1);
+  const shiftElapsed = gameElapsed - (currentShiftNum * dur);
+  const remaining = Math.max(0, dur - shiftElapsed);
+
+  const mins = Math.floor(remaining / 60);
+  const secs = Math.floor(remaining % 60);
+  display.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+
+  display.className = 'timer-display';
+  if (remaining < 60 && remaining > 15) display.classList.add('warning');
+  if (remaining <= 15 && state.timerRunning) display.classList.add('danger');
+
+  const halfNum = Math.floor(currentShiftNum / state.shiftsPerHalf) + 1;
+  const shiftInHalf = (currentShiftNum % state.shiftsPerHalf) + 1;
+  label.textContent = `Half ${halfNum} · Shift ${shiftInHalf}`;
+
+  const gameMins = Math.floor(gameElapsed / 60);
+  const gameSecs = Math.floor(gameElapsed % 60);
+  info.textContent = `Game: ${gameMins}:${gameSecs.toString().padStart(2, '0')} | ${Math.round(dur / 60)} min shifts`;
+}
+
+function updateTimerBtn() {
+  const btn = document.getElementById('timer-start-btn');
+  if (state.timerRunning) {
+    btn.textContent = 'Pause';
+    btn.className = 'timer-btn pause';
+  } else {
+    btn.textContent = 'Start';
+    btn.className = 'timer-btn start';
+  }
+}
+
+let lastAlarmShift = -1;
+function checkShiftAlarm() {
+  const dur = shiftDuration();
+  const currentShiftNum = Math.floor(state.timerElapsed / dur);
+  if (currentShiftNum > lastAlarmShift && currentShiftNum > 0 && currentShiftNum < totalShifts()) {
+    lastAlarmShift = currentShiftNum;
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      [0, 200, 400].forEach(delay => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 880;
+        gain.gain.value = 0.3;
+        osc.start(ctx.currentTime + delay / 1000);
+        osc.stop(ctx.currentTime + delay / 1000 + 0.15);
+      });
+    } catch {}
+  }
+}
+
+// ---- TRANSITIONS ----
+function renderTransitions() {
+  const select = document.getElementById('transition-select');
+  let html = '';
+  for (let i = 1; i < totalShifts(); i++) {
+    const halfNum = Math.floor(i / state.shiftsPerHalf) + 1;
+    const shiftInHalf = (i % state.shiftsPerHalf) + 1;
+    const ordinal = n => n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : n + 'th';
+    const halfName = ordinal(halfNum) + ' Half';
+    const shiftName = ordinal(shiftInHalf) + ' Shift';
+    html += `<option value="${i}">${halfName}: ${shiftName}</option>`;
+  }
+  select.innerHTML = html;
+  select.addEventListener('change', () => renderTransitionDetail(parseInt(select.value)));
+  if (totalShifts() > 1) renderTransitionDetail(1);
+}
+
+function renderTransitionDetail(toIndex) {
+  const box = document.getElementById('callout-box');
+  const prev = getShift(toIndex - 1);
+  const next = getShift(toIndex);
+
+  if (Object.keys(prev).length === 0 || Object.keys(next).length === 0) {
+    box.innerHTML = '<div class="no-changes">Fill in both shifts to see transitions.</div>';
+    return;
+  }
+
+  const prevOnField = new Set(Object.values(prev));
+  const nextOnField = new Set(Object.values(next));
+  const nextPosMap = {};
+  Object.entries(next).forEach(([pos, name]) => { nextPosMap[name] = pos; });
+  const prevPosMap = {};
+  Object.entries(prev).forEach(([pos, name]) => { prevPosMap[name] = pos; });
+
+  const comingOff = [...prevOnField].filter(n => !nextOnField.has(n));
+  const comingOn = [...nextOnField].filter(n => !prevOnField.has(n));
+  const staying = [...prevOnField].filter(n => nextOnField.has(n));
+  const stayingSamePos = staying.filter(n => prevPosMap[n] === nextPosMap[n]);
+  const changingPos = staying.filter(n => prevPosMap[n] !== nextPosMap[n]);
+
+  let html = '';
+
+  // Big callout format for sideline yelling
+  if (comingOff.length > 0) {
+    html += `<div class="transition-section">
+      <h3 class="off">COMING OFF (${comingOff.length})</h3>
+      ${comingOff.map(n => `<div class="transition-item off callout-big">${esc(displayName(n))}</div>`).join('')}
+    </div>`;
+  }
+
+  if (comingOn.length > 0) {
+    html += `<div class="transition-section">
+      <h3 class="on">GOING ON (${comingOn.length})</h3>
+      ${comingOn.map(n => {
+        const pos = nextPosMap[n];
+        const prevPlayer = Object.entries(prev).find(([k, v]) => k === pos);
+        const prevName = prevPlayer ? prevPlayer[1] : null;
+        let instruction = `→ ${fullPos(pos)}`;
+        if (prevName && comingOff.includes(prevName)) {
+          instruction += `, send ${esc(displayName(prevName))} off`;
+        } else if (prevName && changingPos.includes(prevName)) {
+          instruction += `, move ${esc(displayName(prevName))} to ${fullPos(nextPosMap[prevName])}`;
+        }
+        return `<div class="transition-item on callout-big">${esc(displayName(n))} <span class="transition-arrow">${instruction}</span></div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  if (changingPos.length > 0) {
+    html += `<div class="transition-section">
+      <h3 class="move">SWITCHING POSITION (${changingPos.length})</h3>
+      ${changingPos.map(n => `<div class="transition-item move callout-big">${esc(displayName(n))} <span class="transition-arrow">${fullPos(prevPosMap[n])} → ${fullPos(nextPosMap[n])}</span></div>`).join('')}
+    </div>`;
+  }
+
+  if (stayingSamePos.length > 0) {
+    html += `<div class="transition-section">
+      <h3 class="stay">STAYING PUT (${stayingSamePos.length})</h3>
+      ${stayingSamePos.map(n => `<div class="transition-item stay">${esc(displayName(n))} <span class="transition-arrow">· ${prevPosMap[n].toUpperCase()}</span></div>`).join('')}
+    </div>`;
+  }
+
+  if (!html) html = '<div class="no-changes">No differences between these shifts.</div>';
+  box.innerHTML = html;
+}
+
+// ---- PLAYING TIME ----
+function renderPlaytime() {
+  const body = document.getElementById('playtime-body');
+  const minutesPerShift = state.minutesPerHalf / state.shiftsPerHalf;
+  const totalGameMinutes = state.minutesPerHalf * state.halves;
+
+  const playerShifts = {};
+  state.checkedIn.forEach(name => { playerShifts[name] = 0; });
+
+  for (let i = 0; i < totalShifts(); i++) {
+    const shift = getShift(i);
+    Object.values(shift).forEach(name => {
+      if (playerShifts[name] !== undefined) playerShifts[name]++;
+    });
+  }
+
+  const sorted = state.checkedIn.slice().sort((a, b) => playerShifts[a] - playerShifts[b]);
+  const maxShifts = totalShifts();
+
+  body.innerHTML = sorted.map(name => {
+    const shifts = playerShifts[name];
+    const mins = Math.round(shifts * minutesPerShift);
+    const pct = maxShifts > 0 ? Math.round((shifts / maxShifts) * 100) : 0;
+    let barClass = '';
+    if (pct < 40) barClass = 'low';
+    else if (pct < 65) barClass = 'mid';
+
+    return `<tr>
+      <td style="font-weight:600;">${esc(name)}</td>
+      <td>${shifts} / ${maxShifts}</td>
+      <td>${mins} min</td>
+      <td>${pct}%</td>
+      <td><div class="playtime-bar-bg"><div class="playtime-bar ${barClass}" style="width:${pct}%"></div></div></td>
+    </tr>`;
+  }).join('');
+}
+
+// ---- HELPERS ----
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function displayName(s) { return s; }
+const POS_FULL_NAMES = {
+  gk: 'Goalkeeper', lb: 'Left Back', lcb: 'Left Center Back', rcb: 'Right Center Back',
+  rb: 'Right Back', lm: 'Left Mid', cdm: 'Center Defensive Mid', rm: 'Right Mid',
+  lw: 'Left Wing', st: 'Striker', rw: 'Right Wing'
+};
+function fullPos(id) { return POS_FULL_NAMES[id] || id.toUpperCase(); }
+
+// ---- INIT ----
+renderRoster();
+updateTimerBtn();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+</script>
+</body>
+</html>
