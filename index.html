@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Shift Manager">
@@ -153,10 +153,11 @@ body {
 .roster-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-auto-rows: minmax(48px, 1fr);
   gap: 6px;
   flex: 1;
   overflow-y: auto;
-  align-content: start;
+  align-content: stretch;
 }
 .roster-card {
   display: flex;
@@ -565,17 +566,29 @@ body {
   background: #2d3748;
   border-radius: 16px;
   padding: 20px;
-  width: 90%;
-  max-width: 400px;
-  max-height: 80vh;
+  width: 94%;
+  max-width: 640px;
+  max-height: 85vh;
   overflow-y: auto;
 }
 .modal h3 { font-size: 18px; margin-bottom: 12px; }
+#modal-players {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+.modal-note { grid-column: 1 / -1; font-size: 13px; color: var(--gray); }
+.modal-player.full-row { grid-column: 1 / -1; }
 .modal-player {
-  padding: 10px 14px;
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 12px;
   border-radius: 8px;
-  margin-bottom: 4px;
   font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
   background: rgba(255,255,255,0.1);
   transition: background 0.15s;
@@ -670,56 +683,63 @@ body {
    PHONE-FRIENDLY RESPONSIVE
    ============================== */
 @media (max-width: 600px) {
-  /* --- NAV: scrollable row, smaller buttons --- */
+  /* --- NAV: scrollable row, thumb-height buttons --- */
   .nav {
     padding: 6px 10px;
     gap: 6px;
     height: auto;
-    min-height: 44px;
+    min-height: 52px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     flex-wrap: nowrap;
   }
   .nav-title { font-size: 14px; margin-right: 8px; min-width: max-content; }
-  .nav-btn { padding: 5px 10px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
+  .nav-btn { padding: 9px 13px; font-size: 13px; white-space: nowrap; flex-shrink: 0; }
   .nav-signout { font-size: 10px; padding: 3px 8px; flex-shrink: 0; }
   .nav img { height: 28px !important; }
 
-  /* --- SCREENS: allow scroll --- */
-  .screen { height: calc(100dvh - 44px); }
+  /* --- SCREENS: fill the phone, respect the home-indicator area --- */
+  .screen {
+    height: calc(100dvh - 52px);
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
 
-  /* --- ROSTER --- */
+  /* --- ROSTER: 2 columns, rows stretch to fill the screen --- */
   .roster-screen { padding: 12px; gap: 10px; }
-  .roster-list { grid-template-columns: repeat(2, 1fr); }
-  .roster-card { padding: 7px 8px; gap: 6px; }
-  .roster-name { font-size: 13px; }
+  .roster-list { grid-template-columns: repeat(2, 1fr); grid-auto-rows: minmax(52px, 1fr); }
+  .roster-card { padding: 8px 10px; gap: 8px; }
+  .roster-name { font-size: 15px; }
+  .roster-check { width: 22px; height: 22px; }
   .roster-header h2 { font-size: 17px; }
 
-  /* --- SHIFTS: stack field + bench vertically --- */
+  /* --- SHIFTS: field+bench scroll in the middle, timer pinned at bottom --- */
+  .shifts-screen.active { overflow: hidden; padding-bottom: 0; }
   .field-and-bench {
     flex-direction: column;
     overflow-y: auto;
+    flex: 1;
+    min-height: 0;
   }
   .field-container {
     padding: 8px;
     flex: none;
   }
   .field {
-    aspect-ratio: 1.1;
+    aspect-ratio: 0.95;
     max-width: 100%;
   }
   .field-slot {
-    width: 58px;
-    min-height: 36px;
+    width: 64px;
+    min-height: 40px;
   }
-  .field-slot .pos-label { font-size: 8px; }
-  .field-slot .player-badge { font-size: 11px; min-width: 52px; padding: 3px 6px; }
+  .field-slot .pos-label { font-size: 9px; }
+  .field-slot .player-badge { font-size: 12px; min-width: 56px; padding: 5px 8px; }
 
   .bench-panel {
     width: 100%;
-    max-height: 160px;
+    max-height: none;
     flex-direction: column;
-    overflow-y: auto;
+    overflow-y: visible;
     padding: 8px 12px;
   }
   #bench-list {
@@ -731,26 +751,27 @@ body {
 
   .auto-fill-bar { justify-content: center; }
 
-  /* --- SHIFTS TOP BAR: scrollable --- */
+  /* --- SHIFTS TOP BAR: scrollable, thumb-height tabs --- */
   .shifts-top-bar {
-    padding: 6px 10px;
+    padding: 8px 10px;
     gap: 6px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     flex-wrap: nowrap;
   }
-  .shift-tab { padding: 5px 10px; font-size: 11px; white-space: nowrap; flex-shrink: 0; }
+  .shift-tab { padding: 9px 13px; font-size: 13px; white-space: nowrap; flex-shrink: 0; }
   .half-label { font-size: 10px; white-space: nowrap; flex-shrink: 0; }
+  .lock-btn { padding: 8px 12px; font-size: 12px; }
 
-  /* --- TIMER BAR: wrap on phone --- */
+  /* --- TIMER BAR: pinned above the home indicator, thumb-size buttons --- */
   .timer-bar {
     flex-wrap: wrap;
-    padding: 8px 12px;
-    gap: 8px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    gap: 10px;
   }
-  .timer-display { font-size: 22px; min-width: 70px; }
+  .timer-display { font-size: 24px; min-width: 74px; }
   .timer-label { font-size: 11px; }
-  .timer-btn { padding: 6px 12px; font-size: 13px; }
+  .timer-btn { padding: 11px 16px; font-size: 14px; }
   .timer-shift-info { margin-left: 0; font-size: 12px; text-align: left; width: 100%; }
 
   /* --- CALL SUBS / TRANSITIONS --- */
@@ -772,10 +793,11 @@ body {
   .playtime-table td { padding: 6px 8px; white-space: nowrap; }
   .playtime-bar-bg { min-width: 60px; }
 
-  /* --- MODAL: wider on phone --- */
-  .modal { width: 95%; padding: 16px; }
+  /* --- MODAL: near-full-screen, 2-column thumb grid --- */
+  .modal { width: 96%; padding: 16px; max-height: 88vh; }
   .modal h3 { font-size: 16px; }
-  .modal-player { padding: 10px 12px; font-size: 15px; }
+  #modal-players { grid-template-columns: repeat(2, 1fr); gap: 7px; }
+  .modal-player { padding: 8px 10px; font-size: 15px; min-height: 52px; }
 
   /* --- AUTH SCREEN --- */
   .auth-logo { height: 60px; }
@@ -874,7 +896,7 @@ body {
         <div class="transition-label-sub" id="transition-label-sub"></div>
       </div>
       <button class="step-btn" id="trans-next">&#9654;</button>
-      <button class="now-chip" id="trans-now">NOW</button>
+      <button class="now-chip" id="trans-now">&#9679; LIVE</button>
     </div>
     <div class="callout-box" id="callout-box"></div>
   </div>
@@ -1531,7 +1553,7 @@ function openAssignModal(posId) {
 
   let html = '';
   if (currentPlayer) {
-    html += `<div class="modal-player" data-assign="" style="color:var(--red);">Remove ${esc(displayName(currentPlayer))}</div>`;
+    html += `<div class="modal-player full-row" data-assign="" style="color:var(--red);">Remove ${esc(displayName(currentPlayer))}</div>`;
   }
   [...state.checkedIn].sort((a, b) => a.localeCompare(b)).forEach(name => {
     const assignedPos = Object.entries(shift).find(([k, v]) => v === name);
@@ -1734,7 +1756,10 @@ function renderTransitions() {
   document.getElementById('transition-label-sub').textContent = lbl.sub + (isNext ? ' · up next' : '');
   document.getElementById('trans-prev').disabled = selectedTransition <= 1;
   document.getElementById('trans-next').disabled = selectedTransition >= totalShifts() - 1;
-  document.getElementById('trans-now').classList.toggle('following', transitionFollowGame);
+  // Following the game clock → "● LIVE" indicator; browsing with the arrows → "GO LIVE" button to snap back
+  const nowChip = document.getElementById('trans-now');
+  nowChip.classList.toggle('following', transitionFollowGame);
+  nowChip.innerHTML = transitionFollowGame ? '&#9679; LIVE' : 'GO LIVE';
   renderTransitionDetail(selectedTransition);
   updateSubCountdown();
 }
@@ -1863,7 +1888,7 @@ function openInjurySubModal() {
   const playersList = document.getElementById('modal-players');
   title.textContent = 'Injury sub — who is going off?';
   playersList.innerHTML =
-    `<div style="font-size:13px;color:var(--gray);margin-bottom:8px;">Current shift: ${shiftDisplayName(idx)}${state.locked ? ' · allowed while locked' : ''}</div>` +
+    `<div class="modal-note">Current shift: ${shiftDisplayName(idx)}${state.locked ? ' · allowed while locked' : ''}</div>` +
     entries.sort((a, b) => a[1].localeCompare(b[1])).map(([pos, name]) =>
       `<div class="modal-player" data-off="${esc(name)}" data-pos="${pos}">${esc(name)} <span style="color:var(--gray);font-size:12px;">(${fullPos(pos)})</span></div>`
     ).join('');
