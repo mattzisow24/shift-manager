@@ -76,7 +76,9 @@ body {
 }
 
 /* --- APP WRAPPER --- */
-.app-wrapper { display: none; height: 100dvh; flex-direction: column; }
+/* Pinned to the physical screen edges: iOS standalone PWAs measure 100dvh
+   unreliably, which left a dead strip under the footer */
+.app-wrapper { display: none; position: fixed; inset: 0; flex-direction: column; }
 .app-wrapper.active { display: flex; }
 
 /* --- NAV --- */
@@ -582,6 +584,45 @@ body {
 }
 .modal-note { grid-column: 1 / -1; font-size: 13px; color: var(--gray); }
 .modal-player.full-row { grid-column: 1 / -1; }
+.modal-divider {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--gray);
+  margin-top: 6px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+}
+.modal-player.dimmed {
+  opacity: 0.55;
+  background: rgba(255,255,255,0.05);
+  font-weight: 500;
+}
+.sync-input {
+  width: 64px;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  background: rgba(255,255,255,0.15);
+  color: white;
+}
+.sync-half-btn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 8px;
+  border: 2px solid rgba(255,255,255,0.25);
+  background: transparent;
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.sync-half-btn.selected { background: var(--orange); border-color: var(--orange); }
 .modal-player {
   min-height: 48px;
   display: flex;
@@ -873,9 +914,10 @@ body {
       </div>
     </div>
     <div class="timer-bar" id="timer-bar">
-      <div>
+      <div id="timer-clock" style="cursor:pointer;" title="Tap to sync the clock with the ref">
         <div class="timer-display" id="timer-display">0:00</div>
         <div class="timer-label" id="timer-label">Shift 1</div>
+        <div style="font-size:10px;color:var(--gray-dark);">&#9998; tap to sync</div>
       </div>
       <button class="timer-btn start" id="timer-start-btn">Start</button>
       <button class="timer-btn reset" id="timer-reset-btn">Reset</button>
@@ -1557,13 +1599,19 @@ function openAssignModal(posId) {
   if (currentPlayer) {
     html += `<div class="modal-player full-row" data-assign="" style="color:var(--red);">Remove ${esc(displayName(currentPlayer))}</div>`;
   }
-  [...state.checkedIn].sort((a, b) => a.localeCompare(b)).forEach(name => {
-    const assignedPos = Object.entries(shift).find(([k, v]) => v === name);
-    const isCurrent = name === currentPlayer;
-    let label = esc(name);
-    if (assignedPos && !isCurrent) label += ` <span style="color:var(--gray);font-size:12px;">(${assignedPos[0].toUpperCase()})</span>`;
-    html += `<div class="modal-player ${isCurrent ? 'current' : ''}" data-assign="${esc(name)}">${label}</div>`;
+  const posByName = {};
+  Object.entries(shift).forEach(([k, v]) => { posByName[v] = k; });
+  const sorted = [...state.checkedIn].sort((a, b) => a.localeCompare(b));
+  sorted.filter(n => !posByName[n]).forEach(name => {
+    html += `<div class="modal-player" data-assign="${esc(name)}">${esc(name)}</div>`;
   });
+  const fieldNames = sorted.filter(n => posByName[n] && n !== currentPlayer);
+  if (fieldNames.length > 0) {
+    html += `<div class="modal-divider">Already on the field — picking one moves him here</div>`;
+    fieldNames.forEach(name => {
+      html += `<div class="modal-player dimmed" data-assign="${esc(name)}">${esc(name)} <span style="color:var(--gray);font-size:12px;">(${posByName[name].toUpperCase()})</span></div>`;
+    });
+  }
 
   playersList.innerHTML = html;
   overlay.classList.add('active');
@@ -1897,50 +1945,81 @@ function openInjurySubModal() {
   overlay.classList.add('active');
 
   playersList.querySelectorAll('.modal-player').forEach(el => {
-    el.addEventListener('click', () => pickInjuryReplacement(idx, el.dataset.pos, el.dataset.off));
+    el.addEventListener('click', () => pickFillFor(idx, el.dataset.pos, el.dataset.off, [], { name: el.dataset.off, pos: el.dataset.pos }));
   });
 }
 
-function pickInjuryReplacement(idx, pos, offName) {
+// Ask who takes over `openPos`. The answer can be a bench player (done), an
+// on-field player sliding over (which opens HIS old spot — recurse), or
+// "leave the spot open".
+function pickFillFor(idx, openPos, displacedName, moves, injured) {
   const playersList = document.getElementById('modal-players');
   const shift = getShift(idx);
   const onField = new Set(Object.values(shift));
+  const unavailable = new Set([injured.name, ...moves.map(m => m.player)]);
   const bench = state.checkedIn.filter(n => !onField.has(n)).sort((a, b) => a.localeCompare(b));
-  if (bench.length === 0) {
-    document.getElementById('modal-overlay').classList.remove('active');
-    toast('No bench players available');
-    return;
+  const fieldOptions = Object.entries(shift)
+    .filter(([p, n]) => !unavailable.has(n) && p !== openPos)
+    .sort((a, b) => a[1].localeCompare(b[1]));
+
+  document.getElementById('modal-title').textContent = `Who takes ${fullPos(openPos)}?`;
+  let html = `<div class="modal-note">${esc(displacedName)} is leaving ${fullPos(openPos)}</div>`;
+  bench.forEach(n => {
+    html += `<div class="modal-player" data-bench="${esc(n)}">${esc(n)}</div>`;
+  });
+  if (fieldOptions.length > 0) {
+    html += `<div class="modal-divider">Or slide over an on-field player</div>`;
+    fieldOptions.forEach(([p, n]) => {
+      html += `<div class="modal-player dimmed" data-field="${esc(n)}" data-frompos="${p}">${esc(n)} <span style="color:var(--gray);font-size:12px;">(from ${p.toUpperCase()})</span></div>`;
+    });
   }
-  document.getElementById('modal-title').textContent = `Who is coming on for ${offName}?`;
-  playersList.innerHTML = bench.map(n => `<div class="modal-player" data-on="${esc(n)}">${esc(n)}</div>`).join('');
+  html += `<div class="modal-player full-row" data-leave-open="1" style="color:var(--gray);">Leave ${fullPos(openPos)} open</div>`;
+  playersList.innerHTML = html;
+
   playersList.querySelectorAll('.modal-player').forEach(el => {
     el.addEventListener('click', () => {
-      document.getElementById('modal-overlay').classList.remove('active');
-      applyInjurySub(idx, pos, offName, el.dataset.on);
+      if (el.dataset.bench) {
+        document.getElementById('modal-overlay').classList.remove('active');
+        finalizeInjurySub(idx, injured, moves, { name: el.dataset.bench, pos: openPos });
+      } else if (el.dataset.field) {
+        pickFillFor(idx, el.dataset.frompos, el.dataset.field,
+          [...moves, { player: el.dataset.field, from: el.dataset.frompos, to: openPos }], injured);
+      } else {
+        document.getElementById('modal-overlay').classList.remove('active');
+        finalizeInjurySub(idx, injured, moves, null);
+      }
     });
   });
 }
 
-function applyInjurySub(idx, pos, offName, onName) {
+function finalizeInjurySub(idx, injured, moves, entrant) {
   const key = shiftKey(idx);
   if (!state.shifts[key]) state.shifts[key] = {};
-  state.shifts[key][pos] = onName;
+  const shift = state.shifts[key];
+  delete shift[injured.pos];
+  moves.forEach(m => { delete shift[m.from]; shift[m.to] = m.player; });
+  if (entrant) shift[entrant.pos] = entrant.name;
+
   if (!state.midShiftSubs) state.midShiftSubs = {};
   if (!state.midShiftSubs[key]) state.midShiftSubs[key] = [];
-  state.midShiftSubs[key].push({ off: offName, on: onName, pos });
+  state.midShiftSubs[key].push({ off: injured.name, on: entrant ? entrant.name : '', pos: entrant ? entrant.pos : injured.pos });
+
+  const parts = moves.map(m => `${m.player} → ${m.to.toUpperCase()}`);
+  if (entrant) parts.push(`${entrant.name} on at ${entrant.pos.toUpperCase()}`);
+  const summary = parts.length ? parts.join(', ') : 'spot left open';
 
   const future = [];
   for (let i = idx + 1; i < totalShifts(); i++) {
-    if (Object.values(getShift(i)).includes(offName)) future.push(i);
+    if (Object.values(getShift(i)).includes(injured.name)) future.push(i);
   }
-  if (future.length > 0 && confirm(`${onName} is in for ${offName} at ${fullPos(pos)}.\n\nAlso remove ${offName} from the ${future.length} remaining shift(s)? Those spots will be left open for you to refill.`)) {
+  if (future.length > 0 && confirm(`${injured.name} is off (${summary}).\n\nAlso remove ${injured.name} from the ${future.length} remaining shift(s)? Those spots will be left open for you to refill.`)) {
     future.forEach(i => {
       const s = state.shifts[shiftKey(i)];
-      Object.keys(s).forEach(p => { if (s[p] === offName) delete s[p]; });
+      Object.keys(s).forEach(p => { if (s[p] === injured.name) delete s[p]; });
     });
-    toast(`${offName} removed from remaining shifts — refill the open spots`);
+    toast(`${injured.name} off: ${summary} · removed from remaining shifts`);
   } else {
-    toast(`${onName} in for ${offName} (${fullPos(pos)})`);
+    toast(`${injured.name} off: ${summary}`);
   }
   saveState();
   renderActiveScreen();
@@ -1948,6 +2027,51 @@ function applyInjurySub(idx, pos, offName, onName) {
 
 document.querySelectorAll('.injury-sub-trigger').forEach(btn => {
   btn.addEventListener('click', openInjurySubModal);
+});
+
+// ---- CLOCK SYNC ----
+// For when the ref started the game before the in-app timer: ask the ref how
+// much time is left in the half and set the clock to match.
+document.getElementById('timer-clock').addEventListener('click', () => {
+  const overlay = document.getElementById('modal-overlay');
+  const playersList = document.getElementById('modal-players');
+  document.getElementById('modal-title').textContent = 'Sync the game clock';
+  let half = state.timerElapsed >= state.minutesPerHalf * 60 ? 1 : 0;
+
+  playersList.innerHTML = `
+    <div class="modal-note">Ask the ref how much time is left in the half, then set it here.</div>
+    <div class="modal-note" style="display:flex;gap:8px;">
+      <button class="sync-half-btn" id="sync-h1">1st Half</button>
+      <button class="sync-half-btn" id="sync-h2">2nd Half</button>
+    </div>
+    <div class="modal-note" style="display:flex;align-items:center;gap:8px;font-size:15px;color:white;">
+      Time left:
+      <input class="sync-input" id="sync-min" type="number" inputmode="numeric" min="0" max="${state.minutesPerHalf}" value="${state.minutesPerHalf}"> min
+      <input class="sync-input" id="sync-sec" type="number" inputmode="numeric" min="0" max="59" value="0"> sec
+    </div>
+    <div class="modal-player full-row" id="sync-apply" style="background:var(--orange);text-align:center;justify-content:center;align-items:center;font-weight:700;">Sync &amp; Start Clock</div>`;
+  overlay.classList.add('active');
+
+  const paint = () => {
+    document.getElementById('sync-h1').classList.toggle('selected', half === 0);
+    document.getElementById('sync-h2').classList.toggle('selected', half === 1);
+  };
+  paint();
+  document.getElementById('sync-h1').addEventListener('click', () => { half = 0; paint(); });
+  document.getElementById('sync-h2').addEventListener('click', () => { half = 1; paint(); });
+
+  document.getElementById('sync-apply').addEventListener('click', () => {
+    const mins = Math.max(0, Math.min(state.minutesPerHalf, parseInt(document.getElementById('sync-min').value) || 0));
+    const secs = Math.max(0, Math.min(59, parseInt(document.getElementById('sync-sec').value) || 0));
+    const left = Math.min(state.minutesPerHalf * 60, mins * 60 + secs);
+    state.timerElapsed = half * state.minutesPerHalf * 60 + (state.minutesPerHalf * 60 - left);
+    lastAlarmShift = Math.floor(state.timerElapsed / shiftDuration()); // don't replay old shift alarms
+    overlay.classList.remove('active');
+    if (!timerRunning) document.getElementById('timer-start-btn').click();
+    saveState();
+    updateTimerDisplay();
+    toast(`Clock synced — ${mins}:${secs.toString().padStart(2, '0')} left in the ${half === 0 ? '1st' : '2nd'} half`);
+  });
 });
 
 // ---- PLAYING TIME ----
