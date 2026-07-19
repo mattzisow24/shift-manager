@@ -119,15 +119,16 @@ body {
 }
 .bottom-nav .nav-btn {
   flex: 1;
-  padding: 13px 4px;
+  padding: 13px 2px;
   border-radius: 10px;
   border: none;
   background: transparent;
   color: var(--gray);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
+  min-width: 0;
 }
 .bottom-nav .nav-btn.active { background: var(--orange); color: white; }
 
@@ -888,7 +889,7 @@ body {
   </nav>
 
   <!-- ROSTER -->
-  <div class="screen roster-screen active" id="roster-screen">
+  <div class="screen roster-screen" id="roster-screen">
     <div class="roster-header">
       <h2>Team Roster</h2>
       <span class="roster-count" id="roster-count"></span>
@@ -910,7 +911,7 @@ body {
   </div>
 
   <!-- SHIFTS -->
-  <div class="screen shifts-screen" id="shifts-screen">
+  <div class="screen shifts-screen active" id="shifts-screen">
     <div class="shifts-top-bar" id="shifts-top-bar"></div>
     <div class="field-and-bench">
       <div class="field-container">
@@ -918,7 +919,6 @@ body {
         <div class="auto-fill-bar">
           <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;" id="clear-shift-btn">Clear Shift</button>
           <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;" id="copy-prev-btn">Copy Previous Shift</button>
-          <button class="btn btn-sm injury-sub-trigger" style="background:var(--red);color:white;">Injury Sub</button>
         </div>
       </div>
       <div class="bench-panel">
@@ -933,7 +933,6 @@ body {
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
       <h2>Call Substitutions</h2>
       <span class="sub-countdown" id="sub-countdown"></span>
-      <button class="btn btn-sm injury-sub-trigger" style="background:var(--red);color:white;margin-left:auto;">Injury Sub</button>
     </div>
     <div class="transition-stepper">
       <button class="step-btn" id="trans-prev">&#9664;</button>
@@ -958,12 +957,12 @@ body {
     </table>
   </div>
 
-  <!-- Bottom thumb bar: in-game tabs first -->
+  <!-- Bottom thumb bar: in-game actions only; pre-game screens live in ⋯ -->
   <nav class="bottom-nav">
-    <button class="nav-btn" data-screen="shifts">Shifts</button>
+    <button class="nav-btn active" data-screen="shifts">Shifts</button>
     <button class="nav-btn" data-screen="transitions">Call Subs</button>
-    <button class="nav-btn active" data-screen="roster">Roster</button>
-    <button class="nav-btn" data-screen="playtime">Play Time</button>
+    <button class="nav-btn injury-sub-trigger" style="color:#ff9d9d;">In-Shift Sub</button>
+    <button class="nav-btn" id="more-btn" style="flex:0 0 56px;font-size:22px;line-height:1;" title="Roster & Play Time">&#8943;</button>
   </nav>
 </div>
 
@@ -1171,6 +1170,28 @@ function toast(msg) {
   toastTimeout = setTimeout(() => el.classList.remove('show'), 2200);
 }
 
+// ---- IN-APP CONFIRM ----
+// Native confirm()/alert() are silently suppressed in iOS home-screen web
+// apps, so every yes/no question goes through the modal instead.
+function askConfirm(title, detail, yesLabel, noLabel, onYes, onNo) {
+  const overlay = document.getElementById('modal-overlay');
+  const list = document.getElementById('modal-players');
+  document.getElementById('modal-title').textContent = title;
+  list.innerHTML = `
+    ${detail ? `<div class="modal-note">${detail}</div>` : ''}
+    <div class="modal-player full-row" id="confirm-yes" style="background:var(--orange);justify-content:center;text-align:center;font-weight:700;">${yesLabel}</div>
+    <div class="modal-player full-row" id="confirm-no" style="justify-content:center;text-align:center;">${noLabel}</div>`;
+  overlay.classList.add('active');
+  document.getElementById('confirm-yes').addEventListener('click', () => {
+    overlay.classList.remove('active');
+    onYes();
+  });
+  document.getElementById('confirm-no').addEventListener('click', () => {
+    overlay.classList.remove('active');
+    if (onNo) onNo();
+  });
+}
+
 // ---- LOCK ----
 function editLocked() {
   if (state.locked) {
@@ -1197,16 +1218,35 @@ const POSITIONS = [
 
 // ---- NAVIGATION ----
 const screens = { roster: 'roster-screen', shifts: 'shifts-screen', transitions: 'transitions-screen', playtime: 'playtime-screen' };
-document.querySelectorAll('.nav-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById(screens[btn.dataset.screen]).classList.add('active');
-    if (btn.dataset.screen === 'shifts') renderShifts();
-    if (btn.dataset.screen === 'transitions') renderTransitions();
-    if (btn.dataset.screen === 'playtime') renderPlaytime();
-  });
+
+function showScreen(key) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(screens[key]).classList.add('active');
+  document.querySelectorAll('.bottom-nav .nav-btn[data-screen]').forEach(b => b.classList.toggle('active', b.dataset.screen === key));
+  document.getElementById('more-btn').classList.toggle('active', key === 'roster' || key === 'playtime');
+  if (key === 'roster') renderRoster();
+  if (key === 'shifts') renderShifts();
+  if (key === 'transitions') renderTransitions();
+  if (key === 'playtime') renderPlaytime();
+}
+
+document.querySelectorAll('.nav-btn[data-screen]').forEach(btn => {
+  btn.addEventListener('click', () => showScreen(btn.dataset.screen));
+});
+
+// ⋯ menu: the pre-game screens
+document.getElementById('more-btn').addEventListener('click', () => {
+  const overlay = document.getElementById('modal-overlay');
+  const list = document.getElementById('modal-players');
+  document.getElementById('modal-title').textContent = 'Pre-game';
+  list.innerHTML = `
+    <div class="modal-player full-row" data-goto="roster">Roster &amp; check-in</div>
+    <div class="modal-player full-row" data-goto="playtime">Play Time</div>`;
+  overlay.classList.add('active');
+  list.querySelectorAll('[data-goto]').forEach(el => el.addEventListener('click', () => {
+    overlay.classList.remove('active');
+    showScreen(el.dataset.goto);
+  }));
 });
 
 // ---- ROSTER ----
@@ -1246,7 +1286,7 @@ function renderRoster() {
       e.stopPropagation();
       if (editLocked()) return;
       const name = btn.dataset.del;
-      if (confirm(`Remove ${name} from roster?`)) {
+      askConfirm(`Remove ${name} from the roster?`, 'Also clears him out of any shift lineups.', 'Yes — remove', 'Cancel', () => {
         state.roster = state.roster.filter(n => n !== name);
         state.checkedIn = state.checkedIn.filter(n => n !== name);
         Object.keys(state.shifts).forEach(k => {
@@ -1255,7 +1295,8 @@ function renderRoster() {
         });
         saveState();
         renderRoster();
-      }
+        toast(`${name} removed from the roster`);
+      });
     });
   });
 }
@@ -1267,7 +1308,7 @@ function addPlayer() {
   const input = document.getElementById('new-player-input');
   const name = input.value.trim();
   if (!name) return;
-  if (state.roster.includes(name)) { alert('Player already exists'); return; }
+  if (state.roster.includes(name)) { toast('Player already exists'); return; }
   state.roster.push(name);
   state.checkedIn.push(name);
   input.value = '';
@@ -1283,20 +1324,21 @@ document.getElementById('roster-edit-btn').addEventListener('click', () => {
 });
 
 document.getElementById('new-game-btn').addEventListener('click', () => {
-  if (!confirm('Start a new game?\n\nThis clears check-ins, all shift lineups, injury subs, and the timer, and unlocks shifts. The roster itself is kept.')) return;
-  state.checkedIn = [];
-  state.shifts = {};
-  state.midShiftSubs = {};
-  state.timerElapsed = 0;
-  state.currentShiftIndex = 0;
-  state.locked = false;
-  timerRunning = false;
-  clearInterval(timerInterval);
-  lastAlarmShift = -1;
-  transitionFollowGame = true;
-  saveState();
-  renderAll();
-  toast('New game — fresh slate, roster kept');
+  askConfirm('Start a new game?', 'Clears check-ins, all shift lineups, in-shift subs, and the clock, and unlocks shifts. The roster itself is kept.', 'Yes — new game', 'Cancel', () => {
+    state.checkedIn = [];
+    state.shifts = {};
+    state.midShiftSubs = {};
+    state.timerElapsed = 0;
+    state.currentShiftIndex = 0;
+    state.locked = false;
+    timerRunning = false;
+    clearInterval(timerInterval);
+    lastAlarmShift = -1;
+    transitionFollowGame = true;
+    saveState();
+    renderAll();
+    toast('New game — fresh slate, roster kept');
+  });
 });
 
 document.getElementById('check-all-btn').addEventListener('click', () => {
@@ -1343,15 +1385,18 @@ function renderShiftTabs() {
 
   document.getElementById('lock-btn').addEventListener('click', () => {
     if (state.locked) {
-      if (!confirm('Unlock shifts for editing?')) return;
-      state.locked = false;
-      toast('Shifts unlocked — edits allowed');
+      askConfirm('Unlock shifts for editing?', null, 'Yes — unlock', 'Cancel', () => {
+        state.locked = false;
+        toast('Shifts unlocked — edits allowed');
+        saveState();
+        renderShifts();
+      });
     } else {
       state.locked = true;
       toast('\u{1F512} Shifts locked — lineups are protected');
+      saveState();
+      renderShifts();
     }
-    saveState();
-    renderShifts();
   });
 
   bar.querySelectorAll('.shift-tab').forEach(tab => {
@@ -1654,11 +1699,12 @@ document.getElementById('modal-overlay').addEventListener('click', e => {
 
 document.getElementById('clear-shift-btn').addEventListener('click', () => {
   if (editLocked()) return;
-  if (!confirm('Clear all players from this shift?')) return;
-  state.shifts[shiftKey(state.currentShiftIndex)] = {};
-  saveState();
-  renderField();
-  renderBench();
+  askConfirm('Clear all players from this shift?', null, 'Yes — clear it', 'Cancel', () => {
+    state.shifts[shiftKey(state.currentShiftIndex)] = {};
+    saveState();
+    renderField();
+    renderBench();
+  });
 });
 
 document.getElementById('copy-prev-btn').addEventListener('click', () => {
@@ -1948,7 +1994,7 @@ function openInjurySubModal() {
   const overlay = document.getElementById('modal-overlay');
   const title = document.getElementById('modal-title');
   const playersList = document.getElementById('modal-players');
-  title.textContent = 'Injury sub — who is going off?';
+  title.textContent = 'In-shift sub — who is going off?';
   playersList.innerHTML =
     `<div class="modal-note">Current shift: ${shiftDisplayName(idx)}${state.locked ? ' · allowed while locked' : ''}</div>` +
     entries.sort((a, b) => a[1].localeCompare(b[1])).map(([pos, name]) =>
@@ -1991,13 +2037,11 @@ function pickFillFor(idx, openPos, displacedName, moves, injured) {
   playersList.querySelectorAll('.modal-player').forEach(el => {
     el.addEventListener('click', () => {
       if (el.dataset.bench) {
-        document.getElementById('modal-overlay').classList.remove('active');
         finalizeInjurySub(idx, injured, moves, { name: el.dataset.bench, pos: openPos });
       } else if (el.dataset.field) {
         pickFillFor(idx, el.dataset.frompos, el.dataset.field,
           [...moves, { player: el.dataset.field, from: el.dataset.frompos, to: openPos }], injured);
       } else {
-        document.getElementById('modal-overlay').classList.remove('active');
         finalizeInjurySub(idx, injured, moves, null);
       }
     });
@@ -2020,21 +2064,32 @@ function finalizeInjurySub(idx, injured, moves, entrant) {
   if (entrant) parts.push(`${entrant.name} on at ${entrant.pos.toUpperCase()}`);
   const summary = parts.length ? parts.join(', ') : 'spot left open';
 
+  saveState();
+  renderActiveScreen();
+
   const future = [];
   for (let i = idx + 1; i < totalShifts(); i++) {
     if (Object.values(getShift(i)).includes(injured.name)) future.push(i);
   }
-  if (future.length > 0 && confirm(`${injured.name} is off (${summary}).\n\nAlso remove ${injured.name} from the ${future.length} remaining shift(s)? Those spots will be left open for you to refill.`)) {
-    future.forEach(i => {
-      const s = state.shifts[shiftKey(i)];
-      Object.keys(s).forEach(p => { if (s[p] === injured.name) delete s[p]; });
-    });
-    toast(`${injured.name} off: ${summary} · removed from remaining shifts`);
+  if (future.length > 0) {
+    askConfirm(`Remove ${injured.name} from later shifts?`,
+      `${injured.name} is still lined up in ${future.length} upcoming shift(s). Remove him and leave those spots open to refill?`,
+      `Yes — remove from ${future.length} shift(s)`,
+      'No — keep him in later shifts',
+      () => {
+        future.forEach(i => {
+          const s = state.shifts[shiftKey(i)];
+          Object.keys(s).forEach(p => { if (s[p] === injured.name) delete s[p]; });
+        });
+        saveState();
+        renderActiveScreen();
+        toast(`${injured.name} off: ${summary} · removed from later shifts`);
+      },
+      () => toast(`${injured.name} off: ${summary}`));
   } else {
+    document.getElementById('modal-overlay').classList.remove('active');
     toast(`${injured.name} off: ${summary}`);
   }
-  saveState();
-  renderActiveScreen();
 }
 
 document.querySelectorAll('.injury-sub-trigger').forEach(btn => {
@@ -2066,10 +2121,10 @@ document.getElementById('timer-clock').addEventListener('click', () => {
   overlay.classList.add('active');
 
   document.getElementById('sync-reset').addEventListener('click', () => {
-    if (!confirm('Reset the game clock to 0:00?')) return;
-    overlay.classList.remove('active');
-    resetClock();
-    toast('Clock reset');
+    askConfirm('Reset the game clock to 0:00?', null, 'Yes — reset', 'Cancel', () => {
+      resetClock();
+      toast('Clock reset');
+    });
   });
 
   const paint = () => {
