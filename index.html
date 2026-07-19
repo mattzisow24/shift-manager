@@ -94,34 +94,42 @@ body {
   background: rgba(0,0,0,0.3);
   min-height: 48px;
 }
-.nav-title {
-  font-size: 18px;
-  font-weight: 700;
-  margin-right: auto;
-}
-.nav-btn {
-  padding: 6px 14px;
-  border-radius: 8px;
-  border: 2px solid rgba(255,255,255,0.3);
-  background: transparent;
-  color: var(--white);
-  font-size: 14px;
-  font-weight: 600;
+#timer-clock {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
   cursor: pointer;
 }
-.nav-btn.active {
-  background: var(--orange);
-  border-color: var(--orange);
+.nav .timer-display { font-size: 22px; min-width: 0; }
+.clock-sub { font-size: 11px; color: var(--gray); white-space: nowrap; }
+.nav .timer-btn {
+  min-width: 48px;
+  padding: 10px 12px;
+  font-size: 16px;
 }
-.nav-signout {
-  padding: 4px 10px;
-  border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.2);
+
+/* --- BOTTOM NAV --- */
+.bottom-nav {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+  background: #101010;
+  border-top: 1px solid rgba(255,255,255,0.12);
+  flex-shrink: 0;
+}
+.bottom-nav .nav-btn {
+  flex: 1;
+  padding: 13px 4px;
+  border-radius: 10px;
+  border: none;
   background: transparent;
   color: var(--gray);
-  font-size: 11px;
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
+  white-space: nowrap;
 }
+.bottom-nav .nav-btn.active { background: var(--orange); color: white; }
 
 /* --- SCREENS --- */
 /* flex:1 (not a hard-coded height) so the visible screen always gets exactly
@@ -745,10 +753,8 @@ body {
   .nav-signout { font-size: 10px; padding: 3px 8px; flex-shrink: 0; }
   .nav img { height: 28px !important; }
 
-  /* --- SCREENS: flex-fill under the nav, respect the home-indicator area --- */
-  .screen {
-    padding-bottom: calc(12px + env(safe-area-inset-bottom));
-  }
+  /* --- SCREENS: flex-fill between top strip and bottom nav --- */
+  .screen { padding-bottom: 12px; }
 
   /* --- ROSTER: 2 columns, rows stretch to fill the screen --- */
   .roster-screen { padding: 12px; gap: 10px; }
@@ -868,15 +874,17 @@ body {
 
 <!-- APP (hidden until logged in) -->
 <div class="app-wrapper" id="app-wrapper">
+  <!-- Top strip: the game clock, always visible -->
   <nav class="nav">
-    <img src="logo.png" alt="Logo" style="height:36px;width:auto;">
-    <div class="nav-title">Shift Manager</div>
-    <button class="nav-btn active" data-screen="roster">Roster</button>
-    <button class="nav-btn" data-screen="shifts">Shifts</button>
-    <button class="nav-btn" data-screen="transitions">Call Subs</button>
-    <button class="nav-btn" data-screen="playtime">Play Time</button>
+    <img src="logo.png" alt="Logo" style="height:32px;width:auto;">
+    <div id="timer-clock" title="Tap to sync or reset the game clock">
+      <span class="timer-display" id="timer-display">0:00</span>
+      <span class="clock-sub"><span id="timer-label">Half 1 · Shift 1</span> &#9998;</span>
+    </div>
+    <span id="timer-shift-info" style="display:none;"></span>
+    <span style="flex:1;"></span>
+    <button class="timer-btn start" id="timer-start-btn">&#9654;</button>
     <span class="sync-dot" id="sync-dot" title="Synced"></span>
-    <button class="nav-signout" id="signout-btn">Sign Out</button>
   </nav>
 
   <!-- ROSTER -->
@@ -887,6 +895,7 @@ body {
       <span style="margin-left:auto;display:flex;gap:8px;">
         <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;" id="roster-edit-btn">Edit Roster</button>
         <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;" id="new-game-btn">New Game</button>
+        <button class="btn btn-sm" style="background:transparent;color:var(--gray);border:1px solid rgba(255,255,255,0.2);" id="signout-btn">Sign Out</button>
       </span>
     </div>
     <div class="add-player-row" id="add-player-row" style="display:none;">
@@ -909,23 +918,13 @@ body {
         <div class="auto-fill-bar">
           <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;" id="clear-shift-btn">Clear Shift</button>
           <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;" id="copy-prev-btn">Copy Previous Shift</button>
+          <button class="btn btn-sm injury-sub-trigger" style="background:var(--red);color:white;">Injury Sub</button>
         </div>
       </div>
       <div class="bench-panel">
         <div class="bench-title" id="bench-title">Bench (0)</div>
         <div id="bench-list"></div>
       </div>
-    </div>
-    <div class="timer-bar" id="timer-bar">
-      <div id="timer-clock" style="cursor:pointer;" title="Tap to sync the clock with the ref">
-        <div class="timer-display" id="timer-display">0:00</div>
-        <div class="timer-label" id="timer-label">Shift 1</div>
-        <div style="font-size:10px;color:var(--gray-dark);">&#9998; tap to sync</div>
-      </div>
-      <button class="timer-btn start" id="timer-start-btn">Start</button>
-      <button class="timer-btn reset" id="timer-reset-btn">Reset</button>
-      <button class="timer-btn injury-sub-trigger" style="background:var(--red);color:white;">Injury Sub</button>
-      <div class="timer-shift-info" id="timer-shift-info"></div>
     </div>
   </div>
 
@@ -958,6 +957,14 @@ body {
       <tbody id="playtime-body"></tbody>
     </table>
   </div>
+
+  <!-- Bottom thumb bar: in-game tabs first -->
+  <nav class="bottom-nav">
+    <button class="nav-btn" data-screen="shifts">Shifts</button>
+    <button class="nav-btn" data-screen="transitions">Call Subs</button>
+    <button class="nav-btn active" data-screen="roster">Roster</button>
+    <button class="nav-btn" data-screen="playtime">Play Time</button>
+  </nav>
 </div>
 
 <!-- MODAL -->
@@ -1691,7 +1698,7 @@ document.getElementById('timer-start-btn').addEventListener('click', () => {
   }
 });
 
-document.getElementById('timer-reset-btn').addEventListener('click', () => {
+function resetClock() {
   timerRunning = false;
   state.timerElapsed = 0;
   clearInterval(timerInterval);
@@ -1699,7 +1706,7 @@ document.getElementById('timer-reset-btn').addEventListener('click', () => {
   saveState();
   updateTimerDisplay();
   updateTimerBtn();
-});
+}
 
 function updateTimerDisplay() {
   const display = document.getElementById('timer-display');
@@ -1738,11 +1745,13 @@ function updateTimerDisplay() {
 function updateTimerBtn() {
   const btn = document.getElementById('timer-start-btn');
   if (timerRunning) {
-    btn.textContent = 'Pause';
+    btn.innerHTML = '&#10074;&#10074;'; // pause icon
     btn.className = 'timer-btn pause';
+    btn.title = 'Pause the game clock';
   } else {
-    btn.textContent = 'Start';
+    btn.innerHTML = '&#9654;'; // play icon
     btn.className = 'timer-btn start';
+    btn.title = 'Start the game clock';
   }
 }
 
@@ -2052,8 +2061,16 @@ document.getElementById('timer-clock').addEventListener('click', () => {
       <input class="sync-input" id="sync-min" type="number" inputmode="numeric" min="0" max="${state.minutesPerHalf}" value="${state.minutesPerHalf}"> min
       <input class="sync-input" id="sync-sec" type="number" inputmode="numeric" min="0" max="59" value="0"> sec
     </div>
-    <div class="modal-player full-row" id="sync-apply" style="background:var(--orange);text-align:center;justify-content:center;align-items:center;font-weight:700;">Sync &amp; Start Clock</div>`;
+    <div class="modal-player full-row" id="sync-apply" style="background:var(--orange);text-align:center;justify-content:center;align-items:center;font-weight:700;">Sync &amp; Start Clock</div>
+    <div class="modal-player full-row" id="sync-reset" style="color:var(--red);text-align:center;justify-content:center;align-items:center;">Reset clock to 0:00</div>`;
   overlay.classList.add('active');
+
+  document.getElementById('sync-reset').addEventListener('click', () => {
+    if (!confirm('Reset the game clock to 0:00?')) return;
+    overlay.classList.remove('active');
+    resetClock();
+    toast('Clock reset');
+  });
 
   const paint = () => {
     document.getElementById('sync-h1').classList.toggle('selected', half === 0);
