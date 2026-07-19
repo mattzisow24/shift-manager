@@ -4,7 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- "black" (opaque) instead of "black-translucent": translucent mode has a
+     long-standing iOS bug in standalone PWAs where the viewport is shortened
+     by the status-bar height, leaving a dead strip at the bottom -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Shift Manager">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -80,6 +83,19 @@ body {
    unreliably, which left a dead strip under the footer */
 .app-wrapper { display: none; position: fixed; inset: 0; flex-direction: column; }
 .app-wrapper.active { display: flex; }
+
+/* Home-screen icons saved under the old translucent status-bar mode have a
+   layout viewport that is short by exactly the top safe-area inset (iOS bug:
+   it subtracts the status bar from the bottom edge). Stretch the app and the
+   modal layer by that amount so they reach the true bottom of the screen.
+   In the fixed "black" status-bar mode env(safe-area-inset-top) is 0 and
+   this rule is inert. */
+@media (display-mode: standalone) {
+  .app-wrapper, .modal-overlay {
+    bottom: auto;
+    height: calc(100% + env(safe-area-inset-top));
+  }
+}
 
 /* --- NAV --- */
 .nav {
