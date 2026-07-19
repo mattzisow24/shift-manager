@@ -50,7 +50,7 @@ body {
   align-items: center;
   justify-content: center;
   height: 100dvh;
-  padding: 24px;
+  padding: calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));
   gap: 20px;
 }
 .auth-screen.hidden { display: none; }
@@ -84,9 +84,10 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
+  /* keep the header below the iPhone status bar / Dynamic Island in standalone PWA mode */
+  padding: calc(8px + env(safe-area-inset-top)) 16px 8px;
   background: rgba(0,0,0,0.3);
-  height: 48px;
+  min-height: 48px;
 }
 .nav-title {
   font-size: 18px;
@@ -118,8 +119,10 @@ body {
 }
 
 /* --- SCREENS --- */
-.screen { display: none; height: calc(100dvh - 48px); overflow-y: auto; }
-.screen.active { display: flex; flex-direction: column; }
+/* flex:1 (not a hard-coded height) so the visible screen always gets exactly
+   the space left under the nav, whatever height the nav ends up */
+.screen { display: none; overflow-y: auto; }
+.screen.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 
 /* --- ROSTER SCREEN --- */
 .roster-screen { padding: 16px; gap: 12px; }
@@ -683,9 +686,9 @@ body {
    PHONE-FRIENDLY RESPONSIVE
    ============================== */
 @media (max-width: 600px) {
-  /* --- NAV: scrollable row, thumb-height buttons --- */
+  /* --- NAV: scrollable row, thumb-height buttons, below the status bar --- */
   .nav {
-    padding: 6px 10px;
+    padding: calc(6px + env(safe-area-inset-top)) 10px 6px;
     gap: 6px;
     height: auto;
     min-height: 52px;
@@ -698,9 +701,8 @@ body {
   .nav-signout { font-size: 10px; padding: 3px 8px; flex-shrink: 0; }
   .nav img { height: 28px !important; }
 
-  /* --- SCREENS: fill the phone, respect the home-indicator area --- */
+  /* --- SCREENS: flex-fill under the nav, respect the home-indicator area --- */
   .screen {
-    height: calc(100dvh - 52px);
     padding-bottom: calc(12px + env(safe-area-inset-bottom));
   }
 
