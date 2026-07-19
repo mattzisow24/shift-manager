@@ -103,10 +103,14 @@ body {
 .nav .timer-display { font-size: 22px; min-width: 0; }
 .clock-sub { font-size: 11px; color: var(--gray); white-space: nowrap; }
 .nav .timer-btn {
-  min-width: 48px;
-  padding: 10px 12px;
-  font-size: 16px;
+  width: 48px;
+  height: 38px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
+.nav .timer-btn svg { display: block; }
 
 /* --- BOTTOM NAV --- */
 .bottom-nav {
@@ -914,7 +918,7 @@ body {
     </div>
     <span id="timer-shift-info" style="display:none;"></span>
     <span style="flex:1;"></span>
-    <button class="timer-btn start" id="timer-start-btn">&#9654;</button>
+    <button class="timer-btn start" id="timer-start-btn"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M3.5 1.8v10.4a.6.6 0 0 0 .92.5l8.16-5.2a.6.6 0 0 0 0-1L4.42 1.3a.6.6 0 0 0-.92.5z"/></svg></button>
     <span class="sync-dot" id="sync-dot" title="Synced"></span>
   </nav>
 
@@ -1823,11 +1827,11 @@ function updateTimerDisplay() {
 function updateTimerBtn() {
   const btn = document.getElementById('timer-start-btn');
   if (timerRunning) {
-    btn.innerHTML = '&#10074;&#10074;'; // pause icon
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="2.2" y="1.5" width="3.6" height="11" rx="1.3"/><rect x="8.2" y="1.5" width="3.6" height="11" rx="1.3"/></svg>';
     btn.className = 'timer-btn pause';
     btn.title = 'Pause the game clock';
   } else {
-    btn.innerHTML = '&#9654;'; // play icon
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M3.5 1.8v10.4a.6.6 0 0 0 .92.5l8.16-5.2a.6.6 0 0 0 0-1L4.42 1.3a.6.6 0 0 0-.92.5z"/></svg>';
     btn.className = 'timer-btn start';
     btn.title = 'Start the game clock';
   }
