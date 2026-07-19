@@ -131,6 +131,9 @@ body {
   min-width: 0;
 }
 .bottom-nav .nav-btn.active { background: var(--orange); color: white; }
+/* Desktop: pre-game tabs sit in the bar and the ⋯ menu is hidden;
+   the phone layout flips this (see the mobile media query) */
+#more-btn { display: none; }
 
 /* --- SCREENS --- */
 /* flex:1 (not a hard-coded height) so the visible screen always gets exactly
@@ -401,6 +404,11 @@ body {
   color: var(--gray);
   margin-bottom: 4px;
 }
+#bench-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 .bench-player {
   padding: 8px 12px;
   border-radius: 8px;
@@ -613,15 +621,32 @@ body {
   font-weight: 500;
 }
 .sync-input {
-  width: 64px;
-  padding: 10px;
-  border-radius: 8px;
+  width: 84px;
+  padding: 12px 8px;
+  border-radius: 10px;
   border: none;
-  font-size: 18px;
+  font-size: 26px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   text-align: center;
-  background: rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.12);
   color: white;
+}
+.sync-time-row {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 0 6px;
+}
+.sync-colon { font-size: 26px; font-weight: 700; color: var(--gray); }
+.sync-caption {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gray);
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 .sync-half-btn {
   flex: 1;
@@ -797,9 +822,14 @@ body {
   }
   #bench-list {
     display: flex;
+    flex-direction: row;
     flex-wrap: wrap;
     gap: 6px;
   }
+
+  /* --- BOTTOM NAV: pre-game tabs collapse behind ⋯ on phones --- */
+  .bottom-nav .pregame-tab { display: none; }
+  #more-btn { display: block; }
   .bench-player { padding: 6px 10px; font-size: 13px; }
 
   .auto-fill-bar { justify-content: center; }
@@ -962,6 +992,8 @@ body {
     <button class="nav-btn active" data-screen="shifts">Shifts</button>
     <button class="nav-btn" data-screen="transitions">Call Subs</button>
     <button class="nav-btn injury-sub-trigger" style="color:#ff9d9d;">In-Shift Sub</button>
+    <button class="nav-btn pregame-tab" data-screen="roster">Roster</button>
+    <button class="nav-btn pregame-tab" data-screen="playtime">Play Time</button>
     <button class="nav-btn" id="more-btn" style="flex:0 0 56px;font-size:22px;line-height:1;" title="Roster & Play Time">&#8943;</button>
   </nav>
 </div>
@@ -2102,22 +2134,24 @@ document.querySelectorAll('.injury-sub-trigger').forEach(btn => {
 document.getElementById('timer-clock').addEventListener('click', () => {
   const overlay = document.getElementById('modal-overlay');
   const playersList = document.getElementById('modal-players');
-  document.getElementById('modal-title').textContent = 'Sync the game clock';
+  document.getElementById('modal-title').textContent = 'Game clock';
   let half = state.timerElapsed >= state.minutesPerHalf * 60 ? 1 : 0;
 
   playersList.innerHTML = `
-    <div class="modal-note">Ask the ref how much time is left in the half, then set it here.</div>
     <div class="modal-note" style="display:flex;gap:8px;">
       <button class="sync-half-btn" id="sync-h1">1st Half</button>
       <button class="sync-half-btn" id="sync-h2">2nd Half</button>
     </div>
-    <div class="modal-note" style="display:flex;align-items:center;gap:8px;font-size:15px;color:white;">
-      Time left:
-      <input class="sync-input" id="sync-min" type="number" inputmode="numeric" min="0" max="${state.minutesPerHalf}" value="${state.minutesPerHalf}"> min
-      <input class="sync-input" id="sync-sec" type="number" inputmode="numeric" min="0" max="59" value="0"> sec
+    <div class="sync-time-row">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <input class="sync-input" id="sync-min" type="number" inputmode="numeric" min="0" max="${state.minutesPerHalf}" value="${state.minutesPerHalf}">
+        <span class="sync-colon">:</span>
+        <input class="sync-input" id="sync-sec" type="number" inputmode="numeric" min="0" max="59" value="0">
+      </div>
+      <div class="sync-caption">Time left in the half</div>
     </div>
     <div class="modal-player full-row" id="sync-apply" style="background:var(--orange);text-align:center;justify-content:center;align-items:center;font-weight:700;">Sync &amp; Start Clock</div>
-    <div class="modal-player full-row" id="sync-reset" style="color:var(--red);text-align:center;justify-content:center;align-items:center;">Reset clock to 0:00</div>`;
+    <div class="modal-player full-row" id="sync-reset" style="background:transparent;color:var(--red);text-align:center;justify-content:center;align-items:center;font-size:14px;">Reset clock to 0:00</div>`;
   overlay.classList.add('active');
 
   document.getElementById('sync-reset').addEventListener('click', () => {
