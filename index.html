@@ -81,8 +81,8 @@ body {
   min-height: 18px;
   max-width: 360px;
 }
-.auth-logos { display: flex; gap: 18px; align-items: center; }
-.auth-logos img { height: 72px; width: auto; }
+.auth-logos { background: white; border-radius: 16px; padding: 14px 22px; }
+.auth-logos img { height: 84px; width: auto; display: block; }
 .join-input {
   width: 100%;
   max-width: 360px;
@@ -91,13 +91,12 @@ body {
   border: 2px solid rgba(255,255,255,0.2);
   font-size: 22px;
   font-weight: 700;
-  letter-spacing: 2px;
+  letter-spacing: 1px;
   text-align: center;
-  text-transform: uppercase;
   background: rgba(255,255,255,0.1);
   color: white;
 }
-.join-input::placeholder { color: rgba(255,255,255,0.4); letter-spacing: 1px; font-weight: 600; }
+.join-input::placeholder { color: rgba(255,255,255,0.4); letter-spacing: 0; font-weight: 600; }
 .join-input:focus { outline: none; border-color: var(--orange); }
 .auth-note { font-size: 13px; color: var(--gray); max-width: 320px; line-height: 1.4; }
 
@@ -999,7 +998,7 @@ body {
   #modal-players { grid-template-columns: repeat(2, 1fr); gap: 7px; }
   .modal-player { padding: 8px 10px; font-size: 15px; min-height: 52px; }
 
-  .auth-logos img { height: 56px; }
+  .auth-logos img { height: 64px; }
   .auth-title { font-size: 22px; }
   .auth-btn { font-size: 14px; padding: 12px; }
 }
@@ -1009,10 +1008,10 @@ body {
 
 <!-- JOIN SCREEN (team code) -->
 <div class="auth-screen" id="auth-screen">
-  <div class="auth-logos"><img src="logo.png" alt=""><img src="logo-revolution.png" alt=""></div>
+  <div class="auth-logos"><img src="bays.png" alt="BAYS"></div>
   <div class="auth-title">Shift Manager</div>
   <div class="auth-subtitle">Enter your team code to get started</div>
-  <input class="join-input" id="join-code" type="text" placeholder="Team code" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">
+  <input class="join-input" id="join-code" type="text" placeholder="team code" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" enterkeyhint="go">
   <div class="auth-error" id="auth-error"></div>
   <button class="auth-btn" id="join-btn" style="max-width:360px;width:100%;">Join team</button>
   <div class="auth-note">Ask your head coach for the code. You only enter it once — this phone remembers it.</div>
@@ -1139,13 +1138,15 @@ body {
 // =====================================================================
 // TEAMS
 // No accounts. A coach types the team code once; the code (normalized) is
-// the Firestore document id, so knowing the code is what grants access.
+// the preset key and maps to a Firestore document, so knowing the code is
+// what grants access.
 // Adding a team = add a preset here and deploy.
 // =====================================================================
 const TEAM_PRESETS = {
-  'river-plate': {
+  'riverplate': {
     name: 'River Plate',
-    code: 'RIVER PLATE',
+    code: 'riverplate',
+    docId: 'river-plate',   // the boys' existing Firestore document
     logo: 'logo.png',
     roster: [
       'John', 'Jibby', 'Justin', 'Charlie L', 'Charlie C', 'Emmet', 'Andrew', 'Angel',
@@ -1155,7 +1156,8 @@ const TEAM_PRESETS = {
   },
   'revolution': {
     name: 'Revolution',
-    code: 'REVOLUTION',
+    code: 'revolution',
+    docId: 'revolution',
     logo: 'logo-revolution.png',
     roster: [
       'Addison', 'Alli', 'Anjali', 'Brooklynn', 'Elizabeth', 'Emilie', 'Emily', 'Emma',
@@ -1203,7 +1205,7 @@ const authError = document.getElementById('auth-error');
 let currentTeam = null;
 
 function normalizeCode(s) {
-  return (s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 function teamById(id) { const p = TEAM_PRESETS[id]; return p ? { id, ...p } : null; }
 function joinedTeamIds() {
@@ -1377,7 +1379,7 @@ function leaveTeam() {
 function enterTeam(team) {
   leaveTeam();
   currentTeam = team;
-  teamDoc = db.collection('teams').doc(team.id);
+  teamDoc = db.collection('teams').doc(team.docId || team.id);
   try { localStorage.setItem('shift-manager:last-team', team.id); } catch {}
   document.getElementById('nav-logo').src = team.logo;
   currentShiftIndex = parseInt(localStorage.getItem(localKey('shift'))) || 0;
