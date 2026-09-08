@@ -243,17 +243,26 @@ body {
   background: rgba(255,255,255,0.06);
 }
 .setup-box .setup-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--gray); width: 100%; }
-.setup-box label { font-size: 13px; color: var(--gray); display: flex; align-items: center; gap: 6px; }
-.setup-box select, .setup-box input[type="number"] {
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: none;
-  font-size: 16px;
-  background: rgba(255,255,255,0.15);
-  color: white;
-  width: 72px;
+.setup-field { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; }
+.setup-label { font-size: 15px; font-weight: 600; color: var(--gray-light); }
+.segmented { display: flex; background: rgba(255,255,255,0.1); border-radius: 10px; padding: 3px; gap: 3px; }
+.seg-btn {
+  min-width: 48px; padding: 9px 12px;
+  border: none; border-radius: 8px;
+  background: transparent; color: var(--gray);
+  font-size: 16px; font-weight: 700; cursor: pointer;
 }
-.setup-box option { color: black; }
+.seg-btn.active { background: var(--orange); color: white; }
+.segmented.disabled .seg-btn { opacity: 0.5; }
+.stepper { display: flex; align-items: center; background: rgba(255,255,255,0.1); border-radius: 10px; padding: 3px; gap: 3px; }
+.step-ctl {
+  width: 44px; height: 38px;
+  border: none; border-radius: 8px;
+  background: rgba(255,255,255,0.12); color: white;
+  font-size: 22px; font-weight: 700; cursor: pointer; line-height: 1;
+}
+.step-ctl:disabled { opacity: 0.3; }
+.step-value { min-width: 44px; text-align: center; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .setup-box .setup-note { font-size: 12px; color: var(--gray); width: 100%; }
 
 .roster-list {
@@ -1051,14 +1060,20 @@ body {
     </div>
     <div class="setup-box" id="setup-box">
       <div class="setup-title">Game setup</div>
-      <label>Shifts / half
-        <select id="sph-select">
-          <option value="2">2</option><option value="3">3</option><option value="4">4</option>
-        </select>
-      </label>
-      <label>Min / half
-        <input type="number" id="mph-input" min="10" max="45" inputmode="numeric" />
-      </label>
+      <div class="setup-field">
+        <span class="setup-label">Shifts per half</span>
+        <div class="segmented" id="sph-seg">
+          <button class="seg-btn" data-sph="2">2</button><button class="seg-btn" data-sph="3">3</button><button class="seg-btn" data-sph="4">4</button>
+        </div>
+      </div>
+      <div class="setup-field">
+        <span class="setup-label">Minutes per half</span>
+        <div class="stepper">
+          <button class="step-ctl" id="mph-minus">&minus;</button>
+          <span class="step-value" id="mph-value">35</span>
+          <button class="step-ctl" id="mph-plus">+</button>
+        </div>
+      </div>
       <span class="setup-note" id="setup-note"></span>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -1531,28 +1546,21 @@ document.querySelectorAll('.nav-btn[data-screen]').forEach(btn => {
 
 // ⋯ menu: the pre-game screens, team switch, leave team
 document.getElementById('more-btn').addEventListener('click', () => {
-  const others = joinedTeamIds().filter(id => !currentTeam || id !== currentTeam.id);
   const list = openModal(currentTeam ? currentTeam.name : 'Menu', `
     <div class="modal-player full-row" data-goto="roster">Roster &amp; check-in</div>
     <div class="modal-player full-row" data-goto="playtime">Play Time</div>
     <div class="modal-divider">Team</div>
     <div class="modal-note">Team code: <b style="color:white;letter-spacing:1px;">${esc(currentTeam ? currentTeam.code : '')}</b> — share it with new coaches</div>
-    ${others.map(id => `<div class="modal-player full-row" data-team="${esc(id)}">Switch to ${esc(TEAM_PRESETS[id].name)}</div>`).join('')}
-    <div class="modal-player full-row dimmed" id="menu-join">Join another team…</div>
-    <div class="modal-player full-row dimmed" id="menu-leave">Leave this team on this phone</div>`);
+    <div class="modal-player full-row dimmed" id="menu-switch">Switch team…</div>`);
   list.querySelectorAll('[data-goto]').forEach(el => el.addEventListener('click', () => { closeModal(); showScreen(el.dataset.goto); }));
-  list.querySelectorAll('[data-team]').forEach(el => el.addEventListener('click', () => {
-    closeModal();
-    if (joinTeam(el.dataset.team)) { showScreen('shifts'); toast(`Switched to ${TEAM_PRESETS[el.dataset.team].name}`); }
-  }));
-  document.getElementById('menu-join').addEventListener('click', () => { closeModal(); showJoinScreen(); });
-  document.getElementById('menu-leave').addEventListener('click', () => {
+  // Switching always goes through the code screen, so nobody lands on the
+  // other team by accident. The team's data stays in the cloud.
+  document.getElementById('menu-switch').addEventListener('click', () => {
     const t = currentTeam;
-    askConfirm(`Leave ${t.name} on this phone?`, 'The team data stays safe in the cloud. You can rejoin any time with the team code.', 'Yes — leave', 'Cancel', () => {
+    askConfirm('Switch team?', `This phone will forget ${esc(t.name)} — you'll enter a team code to continue.`, 'Yes — switch', 'Cancel', () => {
       forgetJoined(t.id);
       try { localStorage.removeItem('shift-manager:last-team'); } catch {}
       showJoinScreen();
-      toast(`Left ${t.name} on this phone`);
     });
   });
 });
@@ -1588,10 +1596,17 @@ function benchStreak(name, i) {
   return n;
 }
 
-// Checked-in players who would sit shift i as their Nth straight shift
-function streakViolations(i) {
-  if (i < 1 || shiftIsEmpty(i)) return [];
-  return state.checkedIn.filter(n => benchStreak(n, i) >= BENCH_STREAK_LIMIT).sort((a, b) => a.localeCompare(b));
+// Players who already sat the previous BENCH_STREAK_LIMIT shifts and so
+// must play shift i. Only meaningful once those earlier shifts are planned.
+function mustPlay(i) {
+  if (i < BENCH_STREAK_LIMIT) return [];
+  for (let k = 1; k <= BENCH_STREAK_LIMIT; k++) if (shiftIsEmpty(i - k)) return [];
+  return state.checkedIn.filter(n => benchStreak(n, i - 1) >= BENCH_STREAK_LIMIT).sort((a, b) => a.localeCompare(b));
+}
+// ...and of those, the ones not yet in shift i's lineup
+function unresolvedMustPlay(i) {
+  const lineup = new Set(Object.values(getShift(i)));
+  return mustPlay(i).filter(n => !lineup.has(n));
 }
 function satLastShift(name, i) { return i >= 1 && !shiftIsEmpty(i - 1) && benchStreak(name, i - 1) >= 1; }
 
@@ -1618,7 +1633,7 @@ function fmtShifts(n) { return Number.isInteger(n) ? String(n) : n.toFixed(1); }
 // Red dots on the bottom bar when any planned shift has a streak violation
 function updateNavAlerts() {
   let any = false;
-  for (let i = 1; i < totalShifts(); i++) if (shiftIsFull(i) && streakViolations(i).length) { any = true; break; }
+  for (let i = 1; i < totalShifts(); i++) if (shiftIsFull(i) && unresolvedMustPlay(i).length) { any = true; break; }
   document.querySelectorAll('.bottom-nav .nav-btn[data-screen="shifts"], .bottom-nav .nav-btn[data-screen="transitions"]')
     .forEach(b => b.classList.toggle('has-alert', any));
 }
@@ -1633,11 +1648,11 @@ function renderRoster() {
   count.textContent = `${state.roster.length} players · ${state.checkedIn.length} checked in`;
 
   // Game setup controls
-  const sph = document.getElementById('sph-select');
-  const mph = document.getElementById('mph-input');
-  sph.value = String(state.shiftsPerHalf);
-  mph.value = String(state.minutesPerHalf);
-  sph.disabled = mph.disabled = !!state.locked;
+  document.querySelectorAll('#sph-seg .seg-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.sph) === state.shiftsPerHalf));
+  document.getElementById('sph-seg').classList.toggle('disabled', !!state.locked);
+  document.getElementById('mph-value').textContent = String(state.minutesPerHalf);
+  document.getElementById('mph-minus').disabled = !!state.locked || state.minutesPerHalf <= MPH_MIN;
+  document.getElementById('mph-plus').disabled = !!state.locked || state.minutesPerHalf >= MPH_MAX;
   document.getElementById('setup-note').textContent =
     `${totalShifts()} shifts of ${fmtShifts(Math.round((state.minutesPerHalf / state.shiftsPerHalf) * 10) / 10)} min` + (state.locked ? ' · unlock shifts to change' : '');
 
@@ -1716,20 +1731,26 @@ document.getElementById('roster-edit-btn').addEventListener('click', () => {
   if (rosterEditMode) document.getElementById('new-player-input').focus();
 });
 
-document.getElementById('sph-select').addEventListener('change', e => {
-  if (editLocked()) { renderRoster(); return; }
-  state.shiftsPerHalf = parseInt(e.target.value);
+const MPH_MIN = 10, MPH_MAX = 45, MPH_STEP = 5;
+document.querySelectorAll('#sph-seg .seg-btn').forEach(b => b.addEventListener('click', () => {
+  if (editLocked()) return;
+  const n = parseInt(b.dataset.sph);
+  if (n === state.shiftsPerHalf) return;
+  state.shiftsPerHalf = n;
   if (currentShiftIndex >= totalShifts()) setCurrentShift(totalShifts() - 1);
   saveFields('shiftsPerHalf');
   renderRoster();
-});
-document.getElementById('mph-input').addEventListener('change', e => {
-  if (editLocked()) { renderRoster(); return; }
-  state.minutesPerHalf = Math.max(10, Math.min(45, parseInt(e.target.value) || 35));
+  updateClockUI();
+}));
+function bumpMinutes(delta) {
+  if (editLocked()) return;
+  state.minutesPerHalf = Math.max(MPH_MIN, Math.min(MPH_MAX, state.minutesPerHalf + delta));
   saveFields('minutesPerHalf');
   renderRoster();
   updateClockUI();
-});
+}
+document.getElementById('mph-minus').addEventListener('click', () => bumpMinutes(-MPH_STEP));
+document.getElementById('mph-plus').addEventListener('click', () => bumpMinutes(MPH_STEP));
 
 document.getElementById('new-game-btn').addEventListener('click', () => {
   askConfirm('Start a new game?', 'Clears check-ins, all shift lineups, in-shift subs, and the clock, and unlocks shifts. The roster itself is kept.', 'Yes — new game', 'Cancel', () => {
@@ -1783,7 +1804,7 @@ function renderShiftTabs() {
     rows += `<div class="shift-row"><span class="half-label">${h === 0 ? '1st' : '2nd'}</span>`;
     for (let s = 0; s < state.shiftsPerHalf; s++) {
       const idx = h * state.shiftsPerHalf + s;
-      const alert = shiftIsFull(idx) && streakViolations(idx).length > 0;
+      const alert = shiftIsFull(idx) && unresolvedMustPlay(idx).length > 0;
       rows += `<button class="shift-tab ${idx === currentShiftIndex ? 'active' : ''} ${idx === live ? 'live' : ''}" data-shift="${idx}">
         ${idx === live ? '<span class="tab-live">LIVE</span>' : ''}Shift ${s + 1}${alert ? '<span class="tab-alert"></span>' : ''}</button>`;
     }
@@ -1818,15 +1839,15 @@ function renderShiftTabs() {
   });
 }
 
-// Red banner above the field once the shift is full and someone is still
-// sitting for a 2nd straight shift
+// Red banner above the field for anyone who sat the previous two shifts
+// and isn't in this one yet
 function renderStreakBanner() {
   const el = document.getElementById('shifts-streak-banner');
   const i = currentShiftIndex;
-  const v = shiftIsFull(i) ? streakViolations(i) : [];
+  const v = unresolvedMustPlay(i);
   if (v.length === 0) { el.classList.remove('show'); el.innerHTML = ''; return; }
-  el.innerHTML = `<div class="streak-title">⚠️ Sitting ${BENCH_STREAK_LIMIT} shifts in a row</div>` +
-    v.map(n => `<span class="streak-chip" data-name="${esc(n)}">${esc(n)} <span class="streak-n">· ${benchStreak(n, i)} straight</span></span>`).join('') +
+  el.innerHTML = `<div class="streak-title">⚠️ Sat the last ${BENCH_STREAK_LIMIT} shifts — must play this one</div>` +
+    v.map(n => `<span class="streak-chip" data-name="${esc(n)}">${esc(n)} <span class="streak-n">· sat ${benchStreak(n, i - 1)}</span></span>`).join('') +
     `<div class="streak-hint">Tap a name to put them on in this shift</div>`;
   el.classList.add('show');
   el.querySelectorAll('.streak-chip').forEach(chip => chip.addEventListener('click', () => {
@@ -2052,7 +2073,6 @@ function renderBench() {
   const shift = getShift(i);
   const onField = new Set(Object.values(shift));
   const credit = plannedShifts();
-  const full = shiftIsFull(i);
   const bench = state.checkedIn.filter(n => !onField.has(n)).sort((a, b) => {
     // Streak players first, then "sat last shift", then fewest planned shifts
     const sa = benchStreak(a, i - 1), sb = benchStreak(b, i - 1);
@@ -2076,11 +2096,11 @@ function renderBench() {
   }
 
   benchList.innerHTML = bench.map(name => {
-    const streak = full ? benchStreak(name, i) : 0;
-    const violation = streak >= BENCH_STREAK_LIMIT;
-    const satLast = !violation && satLastShift(name, i);
+    const sat = (i >= 1 && !shiftIsEmpty(i - 1)) ? benchStreak(name, i - 1) : 0;
+    const violation = sat >= BENCH_STREAK_LIMIT;
+    const satLast = !violation && sat >= 1;
     const cls = violation ? 'streak' : satLast ? 'sat-last' : '';
-    const tag = violation ? `<span class="bench-tag">${streak} straight</span>` : satLast ? `<span class="bench-tag">sat last</span>` : '';
+    const tag = violation ? `<span class="bench-tag">sat ${sat} · must play</span>` : satLast ? `<span class="bench-tag">sat last</span>` : '';
     return `<div class="bench-player ${cls} ${selectedBench === name ? 'selected' : ''}" data-name="${esc(name)}">
       ${esc(name)} <span class="bench-count">${fmtShifts(credit[name] || 0)}</span>${tag}</div>`;
   }).join('');
@@ -2104,7 +2124,6 @@ function openAssignModal(posId) {
   const shift = getShift(i);
   const currentPlayer = shift[posId];
   const credit = plannedShifts();
-  const full = shiftIsFull(i);
 
   let html = '';
   if (currentPlayer) {
@@ -2119,9 +2138,9 @@ function openAssignModal(posId) {
     return a.localeCompare(b);
   });
   benchNames.forEach(name => {
-    const streak = full ? benchStreak(name, i) : 0;
-    const tag = streak >= BENCH_STREAK_LIMIT ? `<span class="mp-tag red">${streak} straight</span>`
-      : satLastShift(name, i) ? `<span class="mp-tag amber">sat last</span>` : '';
+    const sat = (i >= 1 && !shiftIsEmpty(i - 1)) ? benchStreak(name, i - 1) : 0;
+    const tag = sat >= BENCH_STREAK_LIMIT ? `<span class="mp-tag red">sat ${sat} · must play</span>`
+      : sat >= 1 ? `<span class="mp-tag amber">sat last</span>` : '';
     html += `<div class="modal-player" data-assign="${esc(name)}">${esc(name)}<span class="mp-meta">${fmtShifts(credit[name] || 0)} shifts${tag}</span></div>`;
   });
   const fieldNames = Object.keys(posByName).filter(n => n !== currentPlayer).sort((a, b) => a.localeCompare(b));
@@ -2553,12 +2572,12 @@ function renderTransitionDetail(toIndex) {
   const t = computeTransition(prev, next);
   let html = '';
 
-  // Bench-streak alert for the shift we're subbing INTO
-  const v = streakViolations(toIndex);
+  // Anyone who sat the last two shifts and still isn't in the one we're subbing INTO
+  const v = unresolvedMustPlay(toIndex);
   if (v.length > 0) {
     html += `<div class="streak-banner show" id="trans-streak-banner">
-      <div class="streak-title">⚠️ Sitting ${BENCH_STREAK_LIMIT} shifts in a row</div>
-      ${v.map(n => `<span class="streak-chip" data-name="${esc(n)}">${esc(n)} <span class="streak-n">· ${benchStreak(n, toIndex)} straight</span></span>`).join('')}
+      <div class="streak-title">⚠️ Sat the last ${BENCH_STREAK_LIMIT} shifts — must go on</div>
+      ${v.map(n => `<span class="streak-chip" data-name="${esc(n)}">${esc(n)} <span class="streak-n">· sat ${benchStreak(n, toIndex - 1)}</span></span>`).join('')}
       <div class="streak-hint">Tap a name to swap them into ${shiftDisplayName(toIndex)}</div>
     </div>`;
   }
@@ -2803,9 +2822,10 @@ function renderPlaytime() {
     if (pct < 40) barClass = 'low';
     else if (pct < 65) barClass = 'mid';
     const st = streakInfo[name];
-    const streakNote = st.best >= BENCH_STREAK_LIMIT
+    const flagged = st.best > BENCH_STREAK_LIMIT;
+    const streakNote = flagged
       ? `<div class="playtime-streak">⚠️ Sits ${st.best} in a row (${shortShiftName(st.endsAt - st.best + 1)}–${shortShiftName(st.endsAt)})</div>` : '';
-    return `<div class="playtime-card ${st.best >= BENCH_STREAK_LIMIT ? 'streak' : ''}">
+    return `<div class="playtime-card ${flagged ? 'streak' : ''}">
       <div class="playtime-row">
         <div class="playtime-name">${esc(name)}</div>
         <div class="playtime-meta">~${mins} min · ${pct}%</div>
