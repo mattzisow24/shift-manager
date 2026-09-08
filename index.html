@@ -1484,6 +1484,7 @@ function hideToast() { document.getElementById('toast').classList.remove('show',
 function openModal(title, html) {
   document.getElementById('modal-title').textContent = title;
   document.getElementById('modal-players').innerHTML = html;
+  document.getElementById('modal-close').style.display = '';
   document.getElementById('modal-overlay').classList.add('active');
   return document.getElementById('modal-players');
 }
@@ -1497,6 +1498,8 @@ function askConfirm(title, detail, yesLabel, noLabel, onYes, onNo) {
     ${detail ? `<div class="modal-note">${detail}</div>` : ''}
     <div class="modal-player full-row" id="confirm-yes" style="background:var(--orange);justify-content:center;text-align:center;font-weight:700;">${yesLabel}</div>
     <div class="modal-player full-row" id="confirm-no" style="justify-content:center;text-align:center;">${noLabel}</div>`);
+  // The confirm has its own no-button; the modal's built-in Cancel would be a duplicate
+  document.getElementById('modal-close').style.display = 'none';
   document.getElementById('confirm-yes').addEventListener('click', () => { closeModal(); onYes(); });
   document.getElementById('confirm-no').addEventListener('click', () => { closeModal(); if (onNo) onNo(); });
 }
