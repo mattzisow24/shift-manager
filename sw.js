@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shift-manager-v19';
+const CACHE_NAME = 'shift-manager-v20';
 const ASSETS = [
   '/',
   '/index.html',
@@ -23,6 +23,10 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
+function isAppShell(url, request) {
+  return request.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html';
+}
+
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   // Let Firebase/Firestore network requests pass through (auth, sync)
@@ -32,6 +36,23 @@ self.addEventListener('fetch', e => {
       url.hostname.includes('securetoken.googleapis.com')) {
     return;
   }
+
+  // The app itself is network-first so every launch with signal gets the
+  // newest version; the cache only serves it when offline. Everything else
+  // (icons, SDK) is cache-first.
+  if (isAppShell(url, e.request)) {
+    e.respondWith(
+      fetch(e.request).then(resp => {
+        if (resp && resp.ok) {
+          const copy = resp.clone();
+          caches.open(CACHE_NAME).then(c => c.put('/index.html', copy));
+        }
+        return resp;
+      }).catch(() => caches.match('/index.html').then(r => r || caches.match('/')))
+    );
+    return;
+  }
+
   e.respondWith(
     caches.match(e.request).then(r => r || fetch(e.request))
   );

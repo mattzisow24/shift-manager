@@ -1,9 +1,9 @@
 {
-  "name": "Soccer Subs",
-  "short_name": "Subs",
+  "name": "Shift Manager",
+  "short_name": "Shifts",
   "start_url": "/",
   "display": "standalone",
-  "orientation": "landscape",
+  "orientation": "any",
   "background_color": "#1a1a1a",
   "theme_color": "#1a1a1a",
   "icons": [

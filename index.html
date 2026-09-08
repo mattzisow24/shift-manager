@@ -26,11 +26,14 @@
   --green-field: #52b788;
   --orange: #e8651a;
   --orange-light: #f07830;
+  --amber: #f5b301;
+  --blue: #4895ef;
   --white: #ffffff;
   --gray-light: #e9ecef;
   --gray: #adb5bd;
   --gray-dark: #6c757d;
   --red: #e63946;
+  --green: #2ecc71;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -55,6 +58,7 @@ body {
   height: 100dvh;
   padding: calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));
   gap: 20px;
+  text-align: center;
 }
 .auth-screen.hidden { display: none; }
 .auth-logo { height: 80px; }
@@ -76,7 +80,18 @@ body {
   font-size: 13px;
   text-align: center;
   min-height: 18px;
+  max-width: 360px;
 }
+.auth-noteam {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  max-width: 360px;
+}
+.auth-noteam.active { display: flex; }
+.auth-noteam p { font-size: 15px; line-height: 1.4; color: var(--gray-light); }
+.auth-noteam code { font-size: 14px; color: white; }
 
 /* --- APP WRAPPER --- */
 /* Pinned to the physical screen edges: iOS standalone PWAs measure 100dvh
@@ -84,33 +99,62 @@ body {
 .app-wrapper { display: none; position: fixed; inset: 0; flex-direction: column; }
 .app-wrapper.active { display: flex; }
 
-/* --- NAV --- */
+/* --- NAV / CLOCK HEADER --- */
 .nav {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   /* keep the header below the iPhone status bar / Dynamic Island in standalone PWA mode */
-  padding: calc(8px + env(safe-area-inset-top)) 16px 8px;
+  padding: calc(8px + env(safe-area-inset-top)) 14px 8px;
   background: rgba(0,0,0,0.3);
   min-height: 48px;
+  transition: background 0.2s;
 }
+.nav.paused { background: rgba(245,179,1,0.22); }
+.nav.halftime { background: rgba(72,149,239,0.25); }
+.nav.fulltime { background: rgba(255,255,255,0.10); }
+.nav.warning { background: rgba(232,101,26,0.25); }
+.nav.danger { background: rgba(230,57,70,0.30); }
 #timer-clock {
   display: flex;
   flex-direction: column;
-  line-height: 1.15;
+  line-height: 1.1;
   cursor: pointer;
+  min-width: 0;
 }
-.nav .timer-display { font-size: 22px; min-width: 0; }
-.clock-sub { font-size: 11px; color: var(--gray); white-space: nowrap; }
+.nav .timer-display { font-size: 30px; min-width: 0; letter-spacing: -0.5px; }
+.clock-sub { font-size: 14px; font-weight: 700; color: white; white-space: nowrap; }
+.clock-sub .clock-state { color: var(--amber); }
+.clock-sub .clock-edit { color: var(--gray); font-weight: 400; font-size: 12px; }
 .nav .timer-btn {
-  width: 48px;
-  height: 38px;
+  width: 60px;
+  height: 46px;
   padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  border-radius: 12px;
 }
 .nav .timer-btn svg { display: block; }
+.nav .timer-btn:disabled { opacity: 0.35; }
+
+/* --- SHIFT BANNER (shift change / halftime / full time) --- */
+.shift-banner {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--orange);
+  color: white;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.shift-banner.show { display: flex; }
+.shift-banner.halftime { background: var(--blue); }
+.shift-banner.fulltime { background: var(--gray-dark); }
+.shift-banner .banner-sub { font-size: 12px; font-weight: 600; opacity: 0.9; }
+.shift-banner .banner-x { margin-left: auto; font-size: 20px; padding: 0 4px; opacity: 0.85; }
 
 /* --- BOTTOM NAV --- */
 .bottom-nav {
@@ -133,15 +177,21 @@ body {
   cursor: pointer;
   white-space: nowrap;
   min-width: 0;
+  position: relative;
 }
 .bottom-nav .nav-btn.active { background: var(--orange); color: white; }
+.bottom-nav .nav-btn .nav-dot {
+  position: absolute; top: 6px; right: 8px;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--red); border: 2px solid #101010;
+  display: none;
+}
+.bottom-nav .nav-btn.has-alert .nav-dot { display: block; }
 /* Desktop: pre-game tabs sit in the bar and the ⋯ menu is hidden;
    the phone layout flips this (see the mobile media query) */
 #more-btn { display: none; }
 
 /* --- SCREENS --- */
-/* flex:1 (not a hard-coded height) so the visible screen always gets exactly
-   the space left under the nav, whatever height the nav ends up */
 .screen { display: none; overflow-y: auto; }
 .screen.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 
@@ -172,7 +222,32 @@ body {
 .btn-primary { background: var(--orange); color: white; }
 .btn-danger { background: var(--red); color: white; }
 .btn-gold { background: var(--orange); color: white; }
+.btn-ghost { background: rgba(255,255,255,0.15); color: white; }
 .btn-sm { padding: 6px 12px; font-size: 13px; }
+.btn:disabled { opacity: 0.4; }
+
+.setup-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.06);
+}
+.setup-box .setup-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--gray); width: 100%; }
+.setup-box label { font-size: 13px; color: var(--gray); display: flex; align-items: center; gap: 6px; }
+.setup-box select, .setup-box input[type="number"] {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: none;
+  font-size: 16px;
+  background: rgba(255,255,255,0.15);
+  color: white;
+  width: 72px;
+}
+.setup-box option { color: black; }
+.setup-box .setup-note { font-size: 12px; color: var(--gray); width: 100%; }
 
 .roster-list {
   display: grid;
@@ -182,6 +257,15 @@ body {
   flex: 1;
   overflow-y: auto;
   align-content: stretch;
+}
+.roster-empty {
+  padding: 24px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.06);
+  color: var(--gray);
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.5;
 }
 .roster-card {
   display: flex;
@@ -226,49 +310,72 @@ body {
 }
 .roster-count { font-size: 14px; color: var(--gray); }
 
-/* --- GAME SETUP --- */
-.setup-screen { padding: 16px; gap: 16px; }
-.setup-screen h2 { font-size: 20px; }
-.setup-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-.setup-row label { font-size: 14px; font-weight: 600; min-width: 120px; }
-.setup-row select, .setup-row input[type="number"] {
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: none;
-  font-size: 16px;
-  background: rgba(255,255,255,0.15);
-  color: white;
-}
-.setup-row option { color: black; }
-
 /* --- SHIFTS SCREEN --- */
 .shifts-screen.active { display: flex; flex-direction: column; }
 .shifts-top-bar {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 8px 12px;
   background: rgba(0,0,0,0.2);
-  flex-wrap: wrap;
 }
-.shift-tab {
-  padding: 6px 14px;
-  border-radius: 8px;
-  border: 2px solid rgba(255,255,255,0.2);
-  background: transparent;
-  color: rgba(255,255,255,0.7);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.shift-tab.active { background: var(--orange); color: white; border-color: var(--orange); }
+.shift-rows { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+.shift-row { display: flex; align-items: center; gap: 6px; }
 .half-label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1px;
   color: var(--gray);
-  margin-right: 4px;
+  width: 34px;
+  flex-shrink: 0;
+}
+.shift-tab {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 4px;
+  border-radius: 8px;
+  border: 2px solid rgba(255,255,255,0.2);
+  background: transparent;
+  color: rgba(255,255,255,0.75);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  position: relative;
+  white-space: nowrap;
+}
+.shift-tab.active { background: var(--orange); color: white; border-color: var(--orange); }
+.shift-tab.live { border-color: var(--green); }
+.shift-tab.live.active { border-color: white; }
+.shift-tab .tab-live {
+  position: absolute; top: -7px; left: 50%; transform: translateX(-50%);
+  font-size: 8px; font-weight: 800; letter-spacing: 1px;
+  padding: 1px 5px; border-radius: 6px;
+  background: var(--green); color: #0b3d22;
+}
+.shift-tab .tab-alert {
+  position: absolute; top: -5px; right: -5px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--red); border: 2px solid var(--black);
+}
+.lock-col { display: flex; flex-direction: column; justify-content: center; }
+.lock-btn {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 2px solid rgba(255,255,255,0.2);
+  background: transparent;
+  color: var(--gray);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  height: 100%;
+}
+.lock-btn.locked {
+  background: var(--red);
+  border-color: var(--red);
+  color: white;
 }
 
 .field-and-bench {
@@ -276,6 +383,34 @@ body {
   flex: 1;
   overflow: hidden;
 }
+
+/* --- STREAK BANNER (Shifts + Call Subs) --- */
+.streak-banner {
+  display: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 10px 12px;
+  background: rgba(230,57,70,0.28);
+  border: 1px solid rgba(230,57,70,0.7);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 8px 12px 0;
+}
+.streak-banner.show { display: flex; }
+.streak-banner .streak-title { width: 100%; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #ffb3b9; }
+.streak-chip {
+  padding: 7px 12px;
+  border-radius: 8px;
+  background: var(--red);
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 14px;
+}
+.streak-chip .streak-n { font-weight: 500; opacity: 0.85; font-size: 12px; }
+.streak-hint { width: 100%; font-size: 12px; color: #ffd4d8; font-weight: 500; }
 
 /* --- FIELD --- */
 .field-container {
@@ -297,6 +432,7 @@ body {
   position: relative;
   overflow: hidden;
 }
+.field.placing { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(232,101,26,0.35); }
 .field::before {
   content: '';
   position: absolute;
@@ -355,21 +491,7 @@ body {
   color: var(--black);
   border: 2px solid white;
 }
-.field-slot .player-badge.highlight-stay {
-  background: var(--gray-dark);
-  color: white;
-  border-color: var(--gray-dark);
-}
-.field-slot .player-badge.highlight-move {
-  background: var(--orange);
-  color: white;
-  border-color: var(--orange);
-}
-.field-slot .player-badge.highlight-on {
-  background: #2ecc71;
-  color: white;
-  border-color: #2ecc71;
-}
+.field.placing .field-slot .player-badge { outline: 2px dashed var(--orange); outline-offset: 2px; }
 .field-slot.drag-over .player-badge {
   outline: 3px dashed var(--orange);
   outline-offset: 3px;
@@ -392,7 +514,7 @@ body {
 
 /* --- BENCH --- */
 .bench-panel {
-  width: 200px;
+  width: 220px;
   background: rgba(0,0,0,0.3);
   display: flex;
   flex-direction: column;
@@ -408,6 +530,7 @@ body {
   color: var(--gray);
   margin-bottom: 4px;
 }
+.bench-title .bench-hint { color: var(--orange); text-transform: none; letter-spacing: 0; font-weight: 600; }
 #bench-list {
   display: flex;
   flex-direction: column;
@@ -418,23 +541,45 @@ body {
   border-radius: 8px;
   background: rgba(255,255,255,0.1);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 2px solid transparent;
 }
 .bench-player:active { background: rgba(255,255,255,0.25); }
+.bench-player .bench-count {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.15);
+  color: var(--gray-light);
+}
+.bench-player .bench-tag {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+.bench-player.sat-last { border-color: rgba(245,179,1,0.7); }
+.bench-player.sat-last .bench-tag { background: var(--amber); color: #3a2a00; }
+.bench-player.streak { border-color: var(--red); background: rgba(230,57,70,0.25); }
+.bench-player.streak .bench-tag { background: var(--red); color: white; }
 .bench-player.selected {
   background: var(--orange);
+  border-color: var(--orange);
   color: white;
 }
-.bench-player.on-field {
-  opacity: 0.3;
-  pointer-events: none;
-  text-decoration: line-through;
-}
+.bench-player.selected .bench-count { background: rgba(0,0,0,0.25); color: white; }
+.bench-empty { font-size: 13px; color: var(--gray); font-style: italic; padding: 6px 2px; }
 
 /* --- TRANSITIONS SCREEN --- */
-.transitions-screen { padding: 16px; gap: 16px; overflow-y: auto; }
+.transitions-screen { padding: 16px; gap: 12px; overflow-y: auto; }
 .transitions-screen h2 { font-size: 20px; }
 .transition-section { margin-bottom: 12px; }
 .transition-section h3 {
@@ -446,10 +591,9 @@ body {
   padding-bottom: 4px;
   border-bottom: 1px solid rgba(255,255,255,0.2);
 }
-.transition-section h3.off { color: var(--red); }
+.transition-section h3.subs { color: var(--green); }
 .transition-section h3.stay { color: var(--gray); }
 .transition-section h3.move { color: var(--orange); }
-.transition-section h3.on { color: #2ecc71; }
 .transition-item {
   padding: 8px 14px;
   border-radius: 8px;
@@ -457,12 +601,28 @@ body {
   font-size: 16px;
   font-weight: 500;
 }
-.transition-item.off { background: rgba(230,57,70,0.2); }
 .transition-item.stay { background: rgba(72,149,239,0.2); }
 .transition-item.move { background: rgba(232,101,26,0.2); }
-.transition-item.on { background: rgba(46,204,113,0.2); }
+.transition-item.warn { background: rgba(230,57,70,0.35); font-weight: 700; }
 .transition-arrow { color: var(--gray); font-size: 13px; }
 .no-changes { color: var(--gray); font-style: italic; }
+.sub-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 6px;
+  background: rgba(255,255,255,0.05);
+}
+.sub-pair .sub-off, .sub-pair .sub-on { padding: 10px 12px; min-width: 0; }
+.sub-pair .sub-off { background: rgba(230,57,70,0.25); }
+.sub-pair .sub-on { background: rgba(46,204,113,0.22); }
+.sub-pair .sub-tag { font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
+.sub-pair .sub-off .sub-tag { color: #ff9aa3; }
+.sub-pair .sub-on .sub-tag { color: #7ee0a4; }
+.sub-pair .sub-name { font-size: 24px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+.sub-pair .sub-pos { font-size: 12px; color: var(--gray-light); font-weight: 600; }
+.sub-pair .sub-none { color: var(--gray); font-size: 14px; font-style: italic; }
 .transition-stepper { display: flex; gap: 10px; align-items: stretch; }
 .step-btn {
   width: 52px;
@@ -497,7 +657,8 @@ body {
   flex-shrink: 0;
 }
 .now-chip.following { background: var(--orange); color: white; }
-.sub-countdown { font-size: 14px; color: var(--gray); font-variant-numeric: tabular-nums; }
+.sub-countdown { font-size: 14px; color: var(--gray-light); font-weight: 600; font-variant-numeric: tabular-nums; }
+.sub-countdown.window { color: var(--green); }
 .callout-box {
   background: rgba(0,0,0,0.3);
   border-radius: 12px;
@@ -505,6 +666,7 @@ body {
   flex: 1;
   overflow-y: auto;
 }
+.callout-box .streak-banner { margin: 0 0 12px; }
 .callout-big {
   font-size: 28px;
   font-weight: 700;
@@ -512,14 +674,7 @@ body {
   margin-bottom: 4px;
 }
 
-/* --- TIMER --- */
-.timer-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 16px;
-  background: rgba(0,0,0,0.4);
-}
+/* --- TIMER (shared) --- */
 .timer-display {
   font-size: 28px;
   font-weight: 700;
@@ -529,7 +684,6 @@ body {
 .timer-display.warning { color: var(--orange); }
 .timer-display.danger { color: var(--red); animation: pulse 1s infinite; }
 @keyframes pulse { 50% { opacity: 0.5; } }
-.timer-label { font-size: 13px; color: var(--gray); }
 .timer-btn {
   padding: 8px 16px;
   border-radius: 8px;
@@ -538,47 +692,43 @@ body {
   font-weight: 600;
   cursor: pointer;
 }
-.timer-btn.start { background: #2ecc71; color: white; }
+.timer-btn.start { background: var(--green); color: white; }
 .timer-btn.pause { background: var(--orange); color: white; }
-.timer-btn.reset { background: rgba(255,255,255,0.15); color: white; }
-.timer-shift-info { margin-left: auto; font-size: 13px; color: var(--gray); text-align: right; }
 
 /* --- PLAYING TIME SCREEN --- */
 .playtime-screen { padding: 16px; gap: 12px; overflow-y: auto; }
 .playtime-screen h2 { font-size: 20px; }
-.playtime-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
+.playtime-list { display: flex; flex-direction: column; gap: 8px; }
+.playtime-card {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
-.playtime-table th {
-  text-align: left;
-  padding: 8px 12px;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--gray);
-  border-bottom: 1px solid rgba(255,255,255,0.2);
-}
-.playtime-table td {
-  padding: 8px 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
-}
+.playtime-card.streak { border: 1px solid rgba(230,57,70,0.6); }
+.playtime-row { display: flex; align-items: baseline; gap: 10px; }
+.playtime-name { font-size: 16px; font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.playtime-shifts { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.playtime-shifts small { font-size: 12px; color: var(--gray); font-weight: 600; }
+.playtime-meta { font-size: 12px; color: var(--gray); font-variant-numeric: tabular-nums; }
 .playtime-bar-bg {
-  height: 8px;
-  border-radius: 4px;
+  height: 10px;
+  border-radius: 5px;
   background: rgba(255,255,255,0.1);
-  min-width: 100px;
+  width: 100%;
 }
 .playtime-bar {
   height: 100%;
-  border-radius: 4px;
-  background: var(--orange);
+  border-radius: 5px;
+  background: var(--green);
   transition: width 0.3s;
 }
 .playtime-bar.low { background: var(--red); }
 .playtime-bar.mid { background: var(--orange-light); }
+.playtime-streak { font-size: 12px; color: #ffb3b9; font-weight: 600; }
+.playtime-summary { font-size: 13px; color: var(--gray); }
 
 /* --- MODAL --- */
 .modal-overlay {
@@ -624,6 +774,13 @@ body {
   background: rgba(255,255,255,0.05);
   font-weight: 500;
 }
+.modal-player .mp-meta { color: var(--gray); font-size: 12px; font-weight: 500; }
+.modal-player .mp-tag {
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
+  padding: 1px 6px; border-radius: 6px; margin-left: 4px;
+}
+.modal-player .mp-tag.amber { background: var(--amber); color: #3a2a00; }
+.modal-player .mp-tag.red { background: var(--red); color: white; }
 .sync-input {
   width: 84px;
   padding: 12px 8px;
@@ -705,7 +862,7 @@ body {
 /* --- TOAST --- */
 .toast {
   position: fixed;
-  bottom: 24px;
+  bottom: calc(84px + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   background: rgba(20,20,20,0.95);
@@ -723,25 +880,7 @@ body {
   text-align: center;
 }
 .toast.show { opacity: 1; }
-
-/* --- LOCK --- */
-.lock-btn {
-  padding: 5px 10px;
-  border-radius: 8px;
-  border: 2px solid rgba(255,255,255,0.2);
-  background: transparent;
-  color: var(--gray);
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.lock-btn.locked {
-  background: var(--red);
-  border-color: var(--red);
-  color: white;
-}
+.toast.sticky { pointer-events: auto; cursor: pointer; border-color: var(--orange); }
 
 /* --- MID-SHIFT SUB NOTE --- */
 .sub-note {
@@ -757,9 +896,10 @@ body {
 .sync-dot {
   width: 8px; height: 8px;
   border-radius: 50%;
-  background: #2ecc71;
+  background: var(--green);
   display: inline-block;
   margin-left: 4px;
+  flex-shrink: 0;
 }
 .sync-dot.offline { background: var(--gray); }
 .sync-dot.syncing { background: var(--orange); animation: pulse 1s infinite; }
@@ -768,25 +908,17 @@ body {
    PHONE-FRIENDLY RESPONSIVE
    ============================== */
 @media (max-width: 600px) {
-  /* --- NAV: scrollable row, thumb-height buttons, below the status bar --- */
   .nav {
     padding: calc(6px + env(safe-area-inset-top)) 10px 6px;
-    gap: 6px;
-    height: auto;
+    gap: 8px;
     min-height: 52px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    flex-wrap: nowrap;
   }
-  .nav-title { font-size: 14px; margin-right: 8px; min-width: max-content; }
-  .nav-btn { padding: 9px 13px; font-size: 13px; white-space: nowrap; flex-shrink: 0; }
-  .nav-signout { font-size: 10px; padding: 3px 8px; flex-shrink: 0; }
   .nav img { height: 28px !important; }
+  .nav .timer-display { font-size: 28px; }
+  .clock-sub { font-size: 13px; }
 
-  /* --- SCREENS: flex-fill between top strip and bottom nav --- */
   .screen { padding-bottom: 12px; }
 
-  /* --- ROSTER: 2 columns, rows stretch to fill the screen --- */
   .roster-screen { padding: 12px; gap: 10px; }
   .roster-list { grid-template-columns: repeat(2, 1fr); grid-auto-rows: minmax(52px, 1fr); }
   .roster-card { padding: 8px 10px; gap: 8px; }
@@ -794,7 +926,6 @@ body {
   .roster-check { width: 22px; height: 22px; }
   .roster-header h2 { font-size: 17px; }
 
-  /* --- SHIFTS: field+bench scroll in the middle, timer pinned at bottom --- */
   .shifts-screen.active { overflow: hidden; padding-bottom: 0; }
   .field-and-bench {
     flex-direction: column;
@@ -830,63 +961,36 @@ body {
     flex-wrap: wrap;
     gap: 6px;
   }
+  .bench-player { padding: 7px 10px; font-size: 14px; }
 
-  /* --- BOTTOM NAV: pre-game tabs collapse behind ⋯ on phones --- */
   .bottom-nav .pregame-tab { display: none; }
   #more-btn { display: block; }
-  .bench-player { padding: 6px 10px; font-size: 13px; }
 
   .auto-fill-bar { justify-content: center; }
 
-  /* --- SHIFTS TOP BAR: scrollable, thumb-height tabs --- */
-  .shifts-top-bar {
-    padding: 8px 10px;
-    gap: 6px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    flex-wrap: nowrap;
-  }
-  .shift-tab { padding: 9px 13px; font-size: 13px; white-space: nowrap; flex-shrink: 0; }
-  .half-label { font-size: 10px; white-space: nowrap; flex-shrink: 0; }
-  .lock-btn { padding: 8px 12px; font-size: 12px; }
+  .shifts-top-bar { padding: 8px 10px; gap: 6px; }
+  .shift-tab { padding: 9px 2px; font-size: 13px; }
+  .lock-btn { padding: 8px 10px; font-size: 12px; }
 
-  /* --- TIMER BAR: pinned above the home indicator, thumb-size buttons --- */
-  .timer-bar {
-    flex-wrap: wrap;
-    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
-    gap: 10px;
-  }
-  .timer-display { font-size: 24px; min-width: 74px; }
-  .timer-label { font-size: 11px; }
-  .timer-btn { padding: 11px 16px; font-size: 14px; }
-  .timer-shift-info { margin-left: 0; font-size: 12px; text-align: left; width: 100%; }
-
-  /* --- CALL SUBS / TRANSITIONS --- */
   .transitions-screen { padding: 12px; gap: 12px; }
   .transitions-screen h2 { font-size: 17px; }
   .callout-big { font-size: 20px; }
   .callout-box { padding: 12px; }
+  .sub-pair .sub-name { font-size: 20px; }
   .step-btn { width: 44px; }
   .transition-label-main { font-size: 15px; }
   .transition-label-sub { font-size: 10px; }
   .now-chip { padding: 6px 10px; font-size: 12px; }
-  .sub-countdown { font-size: 12px; }
+  .sub-countdown { font-size: 13px; }
 
-  /* --- PLAYING TIME TABLE: horizontal scroll --- */
   .playtime-screen { padding: 12px; }
   .playtime-screen h2 { font-size: 17px; }
-  .playtime-table { font-size: 12px; display: block; overflow-x: auto; }
-  .playtime-table th { padding: 6px 8px; font-size: 10px; white-space: nowrap; }
-  .playtime-table td { padding: 6px 8px; white-space: nowrap; }
-  .playtime-bar-bg { min-width: 60px; }
 
-  /* --- MODAL: near-full-screen, 2-column thumb grid --- */
   .modal { width: 96%; padding: 16px; max-height: 88vh; }
   .modal h3 { font-size: 16px; }
   #modal-players { grid-template-columns: repeat(2, 1fr); gap: 7px; }
   .modal-player { padding: 8px 10px; font-size: 15px; min-height: 52px; }
 
-  /* --- AUTH SCREEN --- */
   .auth-logo { height: 60px; }
   .auth-title { font-size: 22px; }
   .auth-btn { font-size: 14px; padding: 12px; }
@@ -899,43 +1003,61 @@ body {
 <div class="auth-screen" id="auth-screen">
   <img src="logo.png" alt="Logo" class="auth-logo">
   <div class="auth-title">Shift Manager</div>
-  <div class="auth-subtitle">Sign in to manage the lads</div>
+  <div class="auth-subtitle">Sign in to manage the team</div>
   <div class="auth-error" id="auth-error"></div>
   <button class="auth-btn" id="google-signin-btn" style="display:flex;align-items:center;justify-content:center;gap:10px;max-width:360px;width:100%;">
     <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
     Sign in with Google
   </button>
+  <div class="auth-noteam" id="auth-noteam">
+    <p>This Google account (<code id="noteam-email"></code>) isn't on a team's coach list yet. Ask Matt to add it, or sign in with a different account.</p>
+    <button class="btn btn-ghost" id="noteam-signout">Sign out</button>
+  </div>
 </div>
 
 <!-- APP (hidden until logged in) -->
 <div class="app-wrapper" id="app-wrapper">
   <!-- Top strip: the game clock, always visible -->
-  <nav class="nav">
+  <nav class="nav" id="nav">
     <img src="logo.png" alt="Logo" style="height:32px;width:auto;">
     <div id="timer-clock" title="Tap to sync or reset the game clock">
       <span class="timer-display" id="timer-display">0:00</span>
-      <span class="clock-sub"><span id="timer-label">Half 1 · Shift 1</span> &#9998;</span>
+      <span class="clock-sub"><span id="timer-label">Kickoff</span> <span class="clock-edit">&#9998;</span></span>
     </div>
-    <span id="timer-shift-info" style="display:none;"></span>
     <span style="flex:1;"></span>
-    <button class="timer-btn start" id="timer-start-btn"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M3.5 1.8v10.4a.6.6 0 0 0 .92.5l8.16-5.2a.6.6 0 0 0 0-1L4.42 1.3a.6.6 0 0 0-.92.5z"/></svg></button>
+    <button class="timer-btn start" id="timer-start-btn" title="Start the game clock"><svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor"><path d="M3.5 1.8v10.4a.6.6 0 0 0 .92.5l8.16-5.2a.6.6 0 0 0 0-1L4.42 1.3a.6.6 0 0 0-.92.5z"/></svg></button>
     <span class="sync-dot" id="sync-dot" title="Synced"></span>
   </nav>
+  <div class="shift-banner" id="shift-banner">
+    <div><div id="shift-banner-main"></div><div class="banner-sub" id="shift-banner-sub"></div></div>
+    <span class="banner-x" id="shift-banner-x">&times;</span>
+  </div>
 
   <!-- ROSTER -->
   <div class="screen roster-screen" id="roster-screen">
     <div class="roster-header">
-      <h2>Team Roster</h2>
+      <h2 id="roster-team-name">Team Roster</h2>
       <span class="roster-count" id="roster-count"></span>
       <span style="margin-left:auto;display:flex;gap:8px;">
-        <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;" id="roster-edit-btn">Edit Roster</button>
-        <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;" id="new-game-btn">New Game</button>
-        <button class="btn btn-sm" style="background:transparent;color:var(--gray);border:1px solid rgba(255,255,255,0.2);" id="signout-btn">Sign Out</button>
+        <button class="btn btn-sm btn-ghost" id="roster-edit-btn">Edit Roster</button>
+        <button class="btn btn-sm btn-ghost" id="new-game-btn">New Game</button>
       </span>
     </div>
     <div class="add-player-row" id="add-player-row" style="display:none;">
       <input type="text" id="new-player-input" placeholder="Add player name..." autocomplete="off" autocorrect="off" />
       <button class="btn btn-primary" id="add-player-btn">Add</button>
+    </div>
+    <div class="setup-box" id="setup-box">
+      <div class="setup-title">Game setup</div>
+      <label>Shifts / half
+        <select id="sph-select">
+          <option value="2">2</option><option value="3">3</option><option value="4">4</option>
+        </select>
+      </label>
+      <label>Min / half
+        <input type="number" id="mph-input" min="10" max="45" inputmode="numeric" />
+      </label>
+      <span class="setup-note" id="setup-note"></span>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
       <span style="font-size:14px;color:var(--gray);">Tap to check in for today's game</span>
@@ -947,12 +1069,13 @@ body {
   <!-- SHIFTS -->
   <div class="screen shifts-screen active" id="shifts-screen">
     <div class="shifts-top-bar" id="shifts-top-bar"></div>
+    <div class="streak-banner" id="shifts-streak-banner"></div>
     <div class="field-and-bench">
       <div class="field-container">
         <div class="field" id="field"></div>
         <div class="auto-fill-bar">
-          <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;" id="clear-shift-btn">Clear Shift</button>
-          <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;" id="copy-prev-btn">Copy Previous Shift</button>
+          <button class="btn btn-sm btn-ghost" id="clear-shift-btn">Clear Shift</button>
+          <button class="btn btn-sm btn-ghost" id="copy-prev-btn">Copy Previous Shift</button>
         </div>
       </div>
       <div class="bench-panel">
@@ -982,23 +1105,18 @@ body {
 
   <!-- PLAYING TIME -->
   <div class="screen playtime-screen" id="playtime-screen">
-    <h2>Playing Time</h2>
-    <table class="playtime-table">
-      <thead>
-        <tr><th>Player</th><th>Shifts</th><th>Est. Minutes</th><th>% of Game</th><th></th></tr>
-      </thead>
-      <tbody id="playtime-body"></tbody>
-    </table>
+    <h2>Playing Time <span class="playtime-summary" id="playtime-summary"></span></h2>
+    <div class="playtime-list" id="playtime-list"></div>
   </div>
 
   <!-- Bottom thumb bar: in-game actions only; pre-game screens live in ⋯ -->
   <nav class="bottom-nav">
-    <button class="nav-btn active" data-screen="shifts">Shifts</button>
-    <button class="nav-btn" data-screen="transitions">Call Subs</button>
+    <button class="nav-btn active" data-screen="shifts">Shifts<span class="nav-dot"></span></button>
+    <button class="nav-btn" data-screen="transitions">Call Subs<span class="nav-dot"></span></button>
     <button class="nav-btn injury-sub-trigger" style="color:#ff9d9d;">In-Shift Sub</button>
     <button class="nav-btn pregame-tab" data-screen="roster">Roster</button>
     <button class="nav-btn pregame-tab" data-screen="playtime">Play Time</button>
-    <button class="nav-btn" id="more-btn" style="flex:0 0 56px;font-size:22px;line-height:1;" title="Roster & Play Time">&#8943;</button>
+    <button class="nav-btn" id="more-btn" style="flex:0 0 56px;font-size:22px;line-height:1;" title="Roster, Play Time, team">&#8943;</button>
   </nav>
 </div>
 
@@ -1015,6 +1133,41 @@ body {
 <div class="toast" id="toast"></div>
 
 <script>
+// =====================================================================
+// TEAMS
+// One codebase serves every team. A coach sees the team(s) whose member
+// list contains the Google account email they sign in with. The same
+// lists are mirrored in firestore.rules — update both when adding a coach.
+// =====================================================================
+const TEAMS = [
+  {
+    id: 'river-plate',              // Firestore doc id — keep, this is the existing boys' data
+    name: 'River Plate Boys',
+    members: [
+      // TODO: boys' team coach emails (lowercase), e.g. 'coach@gmail.com'
+    ],
+    defaultRoster: [
+      'John', 'Jibby', 'Justin', 'Charlie L', 'Charlie C', 'Emmet', 'Andrew', 'Angel',
+      'Sam', 'Theo K', 'Theo F', 'Colby', 'Duanze', 'Eamon', 'Felipe', 'Guillermo',
+      'Otto', 'Tom', 'David', 'Greyson'
+    ],
+  },
+  {
+    id: 'river-plate-girls',
+    name: 'River Plate Girls',
+    members: [
+      // TODO: girls' team coach emails (lowercase)
+    ],
+    defaultRoster: [],
+  },
+];
+
+// Alert when a player sits this many shifts in a row
+const BENCH_STREAK_LIMIT = 2;
+// After a shift boundary, Call Subs keeps showing the transition that just
+// happened for this long (seconds) instead of jumping to the next one
+const SUB_GRACE_SECONDS = 90;
+
 // ---- FIREBASE INIT ----
 firebase.initializeApp({
   apiKey: "AIzaSyBGRVuo3FN6kVBcfRO3ikzcGP1jDAL0h1o",
@@ -1052,22 +1205,42 @@ document.getElementById('google-signin-btn').addEventListener('click', async () 
     }
   }
 });
+document.getElementById('noteam-signout').addEventListener('click', () => auth.signOut());
 
-document.getElementById('signout-btn').addEventListener('click', () => {
-  auth.signOut();
-});
+let currentUser = null;
+let currentTeam = null;
 
-// Listen for auth state
-let currentUid = null;
+function teamsFor(email) {
+  const e = (email || '').toLowerCase();
+  return TEAMS.filter(t => t.members.map(m => m.toLowerCase()).includes(e));
+}
+
 auth.onAuthStateChanged(user => {
+  const noTeam = document.getElementById('auth-noteam');
+  const signinBtn = document.getElementById('google-signin-btn');
   if (user) {
-    currentUid = user.uid;
+    currentUser = user;
+    const mine = teamsFor(user.email);
+    if (mine.length === 0) {
+      leaveTeam();
+      document.getElementById('noteam-email').textContent = user.email || '(no email)';
+      noTeam.classList.add('active');
+      signinBtn.style.display = 'none';
+      authScreen.classList.remove('hidden');
+      appWrapper.classList.remove('active');
+      return;
+    }
+    noTeam.classList.remove('active');
+    signinBtn.style.display = 'flex';
     authScreen.classList.add('hidden');
     appWrapper.classList.add('active');
-    startRealtimeSync();
+    const remembered = localStorage.getItem('shift-manager:last-team');
+    enterTeam(mine.find(t => t.id === remembered) || mine[0]);
   } else {
-    currentUid = null;
-    if (unsubscribeListener) { unsubscribeListener(); unsubscribeListener = null; }
+    currentUser = null;
+    leaveTeam();
+    noTeam.classList.remove('active');
+    signinBtn.style.display = 'flex';
     authScreen.classList.remove('hidden');
     appWrapper.classList.remove('active');
   }
@@ -1081,110 +1254,174 @@ function setSyncStatus(status) {
 }
 
 // ---- STATE ----
-const DEFAULT_ROSTER = [
-  'John', 'Jibby', 'Justin', 'Charlie L', 'Charlie C', 'Emmet', 'Andrew', 'Angel',
-  'Sam', 'Theo K', 'Theo F', 'Colby', 'Duanze', 'Eamon', 'Felipe', 'Guillermo',
-  'Otto', 'Tom', 'David', 'Greyson'
-];
-
 let state = defaultState();
 
 function defaultState() {
   return {
-    roster: [...DEFAULT_ROSTER],
+    roster: [],
     checkedIn: [],
     halves: 2,
     shiftsPerHalf: 3,
     minutesPerHalf: 35,
     shifts: {},
-    timerElapsed: 0,
-    currentShiftIndex: 0,
-    locked: false,
     midShiftSubs: {},
+    locked: false,
+    // Game clock. Elapsed seconds = clockBase + (now - clockStartedAt) while
+    // running. Both are shared, so every phone shows the same clock and a
+    // reload never loses it.
+    clockBase: 0,        // seconds elapsed as of the last pause/sync
+    clockStartedAt: 0,   // epoch ms when play was tapped; 0 = paused
   };
 }
 
-// Shared team document — all coaches read/write the same data
-const TEAM_DOC = db.collection('teams').doc('river-plate');
-let unsubscribeListener = null;
-let localSave = false; // flag to ignore our own writes from the listener
+// Which shift tab is open — per phone, not shared (so one coach browsing
+// shift 5 doesn't yank everyone else's screen there)
+let currentShiftIndex = 0;
 
-// Save to Firestore + localStorage
-let saveTimeout = null;
-function saveState() {
-  // Always save to localStorage immediately for offline speed
-  localStorage.setItem('shift-manager-team-state', JSON.stringify(state));
-
-  // Debounce Firestore writes
-  clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(() => {
-    if (!currentUid) return;
-    setSyncStatus('syncing');
-    localSave = true;
-    TEAM_DOC.set({
-      roster: state.roster,
-      checkedIn: state.checkedIn,
-      halves: state.halves,
-      shiftsPerHalf: state.shiftsPerHalf,
-      minutesPerHalf: state.minutesPerHalf,
-      shifts: state.shifts,
-      timerElapsed: state.timerElapsed,
-      currentShiftIndex: state.currentShiftIndex,
-      locked: !!state.locked,
-      midShiftSubs: state.midShiftSubs || {},
-      updatedBy: currentUid,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }).then(() => {
-      setSyncStatus('online');
-    }).catch(() => {
-      setSyncStatus('offline');
-    });
-  }, 500);
+// Migrate docs written by older versions of the app
+function normalizeState(data) {
+  const s = { ...defaultState(), ...data };
+  if (data && data.clockBase === undefined && typeof data.timerElapsed === 'number') {
+    s.clockBase = data.timerElapsed;
+  }
+  delete s.timerElapsed;
+  delete s.currentShiftIndex;
+  if (!s.midShiftSubs) s.midShiftSubs = {};
+  if (!s.shifts) s.shifts = {};
+  return s;
 }
 
-// Subscribe to real-time updates from the shared team document
-function startRealtimeSync() {
+function docFromState() {
+  return {
+    roster: state.roster,
+    checkedIn: state.checkedIn,
+    halves: state.halves,
+    shiftsPerHalf: state.shiftsPerHalf,
+    minutesPerHalf: state.minutesPerHalf,
+    shifts: state.shifts,
+    midShiftSubs: state.midShiftSubs || {},
+    locked: !!state.locked,
+    clockBase: state.clockBase || 0,
+    clockStartedAt: state.clockStartedAt || 0,
+  };
+}
+
+// ---- PERSISTENCE ----
+// Writes are field-level patches (dotted Firestore paths), so two coaches
+// editing different things at the same time merge instead of overwriting
+// each other's whole document.
+let teamDoc = null;
+let unsubscribeListener = null;
+let pendingPatch = {};
+let flushTimer = null;
+
+function localKey(suffix) { return `shift-manager:${currentTeam ? currentTeam.id : 'none'}:${suffix}`; }
+
+function persist(patch, opts = {}) {
+  Object.assign(pendingPatch, patch);
+  try { localStorage.setItem(localKey('state'), JSON.stringify(state)); } catch {}
+  clearTimeout(flushTimer);
+  if (opts.immediate) flushPatch();
+  else flushTimer = setTimeout(flushPatch, 400);
+}
+
+function flushPatch() {
+  clearTimeout(flushTimer);
+  flushTimer = null;
+  if (!currentUser || !teamDoc) return;
+  const patch = pendingPatch;
+  pendingPatch = {};
+  if (Object.keys(patch).length === 0) return;
+  setSyncStatus('syncing');
+  teamDoc.update({
+    ...patch,
+    updatedBy: currentUser.email || currentUser.uid,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+  }).then(() => setSyncStatus('online')).catch(err => {
+    if (err && err.code === 'not-found') {
+      teamDoc.set({ ...docFromState(), updatedBy: currentUser.email || currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
+        .then(() => setSyncStatus('online')).catch(() => setSyncStatus('offline'));
+    } else {
+      console.log('Firestore write error:', err);
+      setSyncStatus('offline');
+    }
+  });
+}
+
+// Convenience savers
+function saveShift(i) { persist({ [`shifts.${shiftKey(i)}`]: state.shifts[shiftKey(i)] || {} }); }
+function saveFields(...keys) { const p = {}; keys.forEach(k => { p[k] = state[k]; }); persist(p); }
+function saveClock() { persist({ clockBase: state.clockBase, clockStartedAt: state.clockStartedAt }, { immediate: true }); }
+
+function applyPatchToState(patch) {
+  Object.entries(patch).forEach(([path, value]) => {
+    const parts = path.split('.');
+    let obj = state;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (typeof obj[parts[i]] !== 'object' || obj[parts[i]] === null) obj[parts[i]] = {};
+      obj = obj[parts[i]];
+    }
+    obj[parts[parts.length - 1]] = value;
+  });
+}
+
+function leaveTeam() {
+  if (unsubscribeListener) { unsubscribeListener(); unsubscribeListener = null; }
+  clearTimeout(flushTimer);
+  pendingPatch = {};
+  teamDoc = null;
+  currentTeam = null;
+}
+
+function enterTeam(team) {
+  leaveTeam();
+  currentTeam = team;
+  teamDoc = db.collection('teams').doc(team.id);
+  localStorage.setItem('shift-manager:last-team', team.id);
+  currentShiftIndex = parseInt(localStorage.getItem(localKey('shift'))) || 0;
+  state = defaultState();
+
   // Load from localStorage first for instant display
   try {
-    const local = JSON.parse(localStorage.getItem('shift-manager-team-state'));
-    if (local && local.roster) {
-      state = { ...defaultState(), ...local };
-      renderAll();
-    }
+    const local = JSON.parse(localStorage.getItem(localKey('state')));
+    if (local && local.roster) state = normalizeState(local);
   } catch {}
+  renderAll();
 
-  // Listen for real-time changes — fires immediately with cached data, then on every update
-  if (unsubscribeListener) unsubscribeListener();
-  unsubscribeListener = TEAM_DOC.onSnapshot(doc => {
-    if (localSave) {
-      // This is our own write echoing back — skip re-render
-      localSave = false;
-      return;
-    }
+  unsubscribeListener = teamDoc.onSnapshot(doc => {
+    // Our own local writes echo back with hasPendingWrites=true; skip those
+    if (doc.metadata.hasPendingWrites) return;
     if (doc.exists) {
-      const data = doc.data();
-      state = { ...defaultState(), ...data };
-      if (!state.roster || state.roster.length === 0) state.roster = [...DEFAULT_ROSTER];
-      localStorage.setItem('shift-manager-team-state', JSON.stringify(state));
+      state = normalizeState(doc.data());
+      // Re-apply edits made since the last flush so a remote snapshot never
+      // wipes something the coach just tapped
+      applyPatchToState(pendingPatch);
+      try { localStorage.setItem(localKey('state'), JSON.stringify(state)); } catch {}
       setSyncStatus(doc.metadata.fromCache ? 'offline' : 'online');
       renderAll();
+      // A brand-new team has no players yet: start on the roster screen
+      if (state.roster.length === 0 && !document.getElementById('roster-screen').classList.contains('active')) showScreen('roster');
     } else {
-      // First time — initialize the shared team doc
+      // First time this team is opened — create the shared doc
       state = defaultState();
-      saveState();
+      state.roster = [...team.defaultRoster];
+      teamDoc.set({ ...docFromState(), updatedBy: currentUser.email || currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
+        .then(() => setSyncStatus('online')).catch(() => setSyncStatus('offline'));
       renderAll();
+      if (state.roster.length === 0) showScreen('roster');
     }
   }, err => {
     console.log('Firestore listener error:', err);
     setSyncStatus('offline');
+    if (err && err.code === 'permission-denied') toast('No access to this team — check the coach list');
   });
 }
 
 function renderAll() {
   renderRoster();
-  updateTimerBtn();
-  updateTimerDisplay();
+  updateClockUI();
   renderActiveScreen();
+  updateNavAlerts();
 }
 
 // Re-render whichever screen is currently visible (used after remote sync + injury subs)
@@ -1194,38 +1431,41 @@ function renderActiveScreen() {
   if (active.id === 'shifts-screen') renderShifts();
   if (active.id === 'transitions-screen') renderTransitions();
   if (active.id === 'playtime-screen') renderPlaytime();
+  if (active.id === 'roster-screen') renderRoster();
 }
 
 // ---- TOAST ----
 let toastTimeout = null;
-function toast(msg) {
+function toast(msg, opts = {}) {
   const el = document.getElementById('toast');
   el.textContent = msg;
   el.classList.add('show');
+  el.classList.toggle('sticky', !!opts.sticky);
+  el.onclick = opts.onClick || null;
   clearTimeout(toastTimeout);
-  toastTimeout = setTimeout(() => el.classList.remove('show'), 2200);
+  if (!opts.sticky) toastTimeout = setTimeout(() => el.classList.remove('show'), opts.ms || 2200);
 }
+function hideToast() { document.getElementById('toast').classList.remove('show', 'sticky'); }
+
+// ---- MODAL HELPERS ----
+function openModal(title, html) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-players').innerHTML = html;
+  document.getElementById('modal-overlay').classList.add('active');
+  return document.getElementById('modal-players');
+}
+function closeModal() { document.getElementById('modal-overlay').classList.remove('active'); }
 
 // ---- IN-APP CONFIRM ----
 // Native confirm()/alert() are silently suppressed in iOS home-screen web
 // apps, so every yes/no question goes through the modal instead.
 function askConfirm(title, detail, yesLabel, noLabel, onYes, onNo) {
-  const overlay = document.getElementById('modal-overlay');
-  const list = document.getElementById('modal-players');
-  document.getElementById('modal-title').textContent = title;
-  list.innerHTML = `
+  openModal(title, `
     ${detail ? `<div class="modal-note">${detail}</div>` : ''}
     <div class="modal-player full-row" id="confirm-yes" style="background:var(--orange);justify-content:center;text-align:center;font-weight:700;">${yesLabel}</div>
-    <div class="modal-player full-row" id="confirm-no" style="justify-content:center;text-align:center;">${noLabel}</div>`;
-  overlay.classList.add('active');
-  document.getElementById('confirm-yes').addEventListener('click', () => {
-    overlay.classList.remove('active');
-    onYes();
-  });
-  document.getElementById('confirm-no').addEventListener('click', () => {
-    overlay.classList.remove('active');
-    if (onNo) onNo();
-  });
+    <div class="modal-player full-row" id="confirm-no" style="justify-content:center;text-align:center;">${noLabel}</div>`);
+  document.getElementById('confirm-yes').addEventListener('click', () => { closeModal(); onYes(); });
+  document.getElementById('confirm-no').addEventListener('click', () => { closeModal(); if (onNo) onNo(); });
 }
 
 // ---- LOCK ----
@@ -1260,6 +1500,7 @@ function showScreen(key) {
   document.getElementById(screens[key]).classList.add('active');
   document.querySelectorAll('.bottom-nav .nav-btn[data-screen]').forEach(b => b.classList.toggle('active', b.dataset.screen === key));
   document.getElementById('more-btn').classList.toggle('active', key === 'roster' || key === 'playtime');
+  if (key !== 'shifts') clearBenchSelection(false);
   if (key === 'roster') renderRoster();
   if (key === 'shifts') renderShifts();
   if (key === 'transitions') renderTransitions();
@@ -1270,20 +1511,93 @@ document.querySelectorAll('.nav-btn[data-screen]').forEach(btn => {
   btn.addEventListener('click', () => showScreen(btn.dataset.screen));
 });
 
-// ⋯ menu: the pre-game screens
+// ⋯ menu: the pre-game screens, team switch, sign out
 document.getElementById('more-btn').addEventListener('click', () => {
-  const overlay = document.getElementById('modal-overlay');
-  const list = document.getElementById('modal-players');
-  document.getElementById('modal-title').textContent = 'Pre-game';
-  list.innerHTML = `
+  const mine = currentUser ? teamsFor(currentUser.email) : [];
+  const list = openModal(currentTeam ? currentTeam.name : 'Menu', `
     <div class="modal-player full-row" data-goto="roster">Roster &amp; check-in</div>
-    <div class="modal-player full-row" data-goto="playtime">Play Time</div>`;
-  overlay.classList.add('active');
-  list.querySelectorAll('[data-goto]').forEach(el => el.addEventListener('click', () => {
-    overlay.classList.remove('active');
-    showScreen(el.dataset.goto);
+    <div class="modal-player full-row" data-goto="playtime">Play Time</div>
+    ${mine.length > 1 ? `<div class="modal-divider">Switch team</div>` +
+      mine.filter(t => t.id !== currentTeam.id).map(t => `<div class="modal-player full-row" data-team="${esc(t.id)}">${esc(t.name)}</div>`).join('') : ''}
+    <div class="modal-divider">Account</div>
+    <div class="modal-note">${esc(currentUser && currentUser.email || '')}</div>
+    <div class="modal-player full-row dimmed" id="menu-signout">Sign out</div>`);
+  list.querySelectorAll('[data-goto]').forEach(el => el.addEventListener('click', () => { closeModal(); showScreen(el.dataset.goto); }));
+  list.querySelectorAll('[data-team]').forEach(el => el.addEventListener('click', () => {
+    closeModal();
+    const t = TEAMS.find(x => x.id === el.dataset.team);
+    if (t) { enterTeam(t); showScreen('shifts'); toast(`Switched to ${t.name}`); }
   }));
+  document.getElementById('menu-signout').addEventListener('click', () => {
+    askConfirm('Sign out?', 'You will need to sign in with Google again to get back in.', 'Yes — sign out', 'Cancel', () => auth.signOut());
+  });
 });
+
+// ---- SHIFT / PLAY HELPERS ----
+function totalShifts() { return state.halves * state.shiftsPerHalf; }
+function shiftKey(i) { return `shift_${i}`; }
+function getShift(i) { return state.shifts[shiftKey(i)] || {}; }
+function shiftIsEmpty(i) { return Object.keys(getShift(i)).length === 0; }
+function shiftIsFull(i) { const s = getShift(i); return POSITIONS.every(p => s[p.id]); }
+function halfOf(i) { return Math.floor(i / state.shiftsPerHalf); }
+function halfName(h) { return h === 0 ? '1st Half' : '2nd Half'; }
+function shiftDisplayName(i) { return `${halfName(halfOf(i))} · Shift ${(i % state.shiftsPerHalf) + 1}`; }
+function shortShiftName(i) { return `H${halfOf(i) + 1} S${(i % state.shiftsPerHalf) + 1}`; }
+
+// A player "played" shift i if they're in its lineup, or started it and went
+// off as an in-shift sub (the entrant is already in the lineup by then).
+function playedShift(name, i) {
+  if (Object.values(getShift(i)).includes(name)) return true;
+  const subs = (state.midShiftSubs || {})[shiftKey(i)] || [];
+  return subs.some(s => s.off === name);
+}
+
+// Consecutive planned shifts ending at i (inclusive) that `name` sat out.
+// An empty (unplanned) shift ends the count rather than adding to it.
+function benchStreak(name, i) {
+  let n = 0;
+  for (let k = i; k >= 0; k--) {
+    if (shiftIsEmpty(k)) break;
+    if (playedShift(name, k)) break;
+    n++;
+  }
+  return n;
+}
+
+// Checked-in players who would sit shift i as their Nth straight shift
+function streakViolations(i) {
+  if (i < 1 || shiftIsEmpty(i)) return [];
+  return state.checkedIn.filter(n => benchStreak(n, i) >= BENCH_STREAK_LIMIT).sort((a, b) => a.localeCompare(b));
+}
+function satLastShift(name, i) { return i >= 1 && !shiftIsEmpty(i - 1) && benchStreak(name, i - 1) >= 1; }
+
+// Planned shift credit per checked-in player (in-shift subs split a shift 0.5/0.5)
+function plannedShifts() {
+  const credit = {};
+  state.checkedIn.forEach(n => { credit[n] = 0; });
+  for (let i = 0; i < totalShifts(); i++) {
+    Object.values(getShift(i)).forEach(n => { if (credit[n] !== undefined) credit[n]++; });
+  }
+  const allSubs = state.midShiftSubs || {};
+  Object.keys(allSubs).forEach(k => {
+    const idx = parseInt(k.split('_')[1]);
+    if (isNaN(idx) || idx >= totalShifts()) return;
+    allSubs[k].forEach(s => {
+      if (credit[s.on] !== undefined) credit[s.on] -= 0.5;
+      if (credit[s.off] !== undefined) credit[s.off] += 0.5;
+    });
+  });
+  return credit;
+}
+function fmtShifts(n) { return Number.isInteger(n) ? String(n) : n.toFixed(1); }
+
+// Red dots on the bottom bar when any planned shift has a streak violation
+function updateNavAlerts() {
+  let any = false;
+  for (let i = 1; i < totalShifts(); i++) if (shiftIsFull(i) && streakViolations(i).length) { any = true; break; }
+  document.querySelectorAll('.bottom-nav .nav-btn[data-screen="shifts"], .bottom-nav .nav-btn[data-screen="transitions"]')
+    .forEach(b => b.classList.toggle('has-alert', any));
+}
 
 // ---- ROSTER ----
 let rosterEditMode = false;
@@ -1291,8 +1605,22 @@ let rosterEditMode = false;
 function renderRoster() {
   const list = document.getElementById('roster-list');
   const count = document.getElementById('roster-count');
-  const checkedCount = state.checkedIn.length;
-  count.textContent = `${state.roster.length} players | ${checkedCount} checked in`;
+  document.getElementById('roster-team-name').textContent = currentTeam ? currentTeam.name : 'Team Roster';
+  count.textContent = `${state.roster.length} players · ${state.checkedIn.length} checked in`;
+
+  // Game setup controls
+  const sph = document.getElementById('sph-select');
+  const mph = document.getElementById('mph-input');
+  sph.value = String(state.shiftsPerHalf);
+  mph.value = String(state.minutesPerHalf);
+  sph.disabled = mph.disabled = !!state.locked;
+  document.getElementById('setup-note').textContent =
+    `${totalShifts()} shifts of ${fmtShifts(Math.round((state.minutesPerHalf / state.shiftsPerHalf) * 10) / 10)} min` + (state.locked ? ' · unlock shifts to change' : '');
+
+  if (state.roster.length === 0) {
+    list.innerHTML = `<div class="roster-empty" style="grid-column:1/-1;">No players yet.<br>Tap <b>Edit Roster</b> to add the team.</div>`;
+    return;
+  }
 
   list.innerHTML = [...state.roster].sort((a, b) => a.localeCompare(b)).map(name => {
     const checked = state.checkedIn.includes(name);
@@ -1312,7 +1640,7 @@ function renderRoster() {
       } else {
         state.checkedIn.push(name);
       }
-      saveState();
+      saveFields('checkedIn');
       renderRoster();
     });
   });
@@ -1322,14 +1650,17 @@ function renderRoster() {
       e.stopPropagation();
       if (editLocked()) return;
       const name = btn.dataset.del;
-      askConfirm(`Remove ${name} from the roster?`, 'Also clears him out of any shift lineups.', 'Yes — remove', 'Cancel', () => {
+      askConfirm(`Remove ${name} from the roster?`, 'Also clears them out of any shift lineups.', 'Yes — remove', 'Cancel', () => {
         state.roster = state.roster.filter(n => n !== name);
         state.checkedIn = state.checkedIn.filter(n => n !== name);
+        const patch = { roster: state.roster, checkedIn: state.checkedIn };
         Object.keys(state.shifts).forEach(k => {
           const shift = state.shifts[k];
-          Object.keys(shift).forEach(pos => { if (shift[pos] === name) delete shift[pos]; });
+          let touched = false;
+          Object.keys(shift).forEach(pos => { if (shift[pos] === name) { delete shift[pos]; touched = true; } });
+          if (touched) patch[`shifts.${k}`] = shift;
         });
-        saveState();
+        persist(patch);
         renderRoster();
         toast(`${name} removed from the roster`);
       });
@@ -1348,8 +1679,9 @@ function addPlayer() {
   state.roster.push(name);
   state.checkedIn.push(name);
   input.value = '';
-  saveState();
+  saveFields('roster', 'checkedIn');
   renderRoster();
+  input.focus();
 }
 
 document.getElementById('roster-edit-btn').addEventListener('click', () => {
@@ -1357,6 +1689,22 @@ document.getElementById('roster-edit-btn').addEventListener('click', () => {
   document.getElementById('add-player-row').style.display = rosterEditMode ? 'flex' : 'none';
   document.getElementById('roster-edit-btn').textContent = rosterEditMode ? 'Done' : 'Edit Roster';
   renderRoster();
+  if (rosterEditMode) document.getElementById('new-player-input').focus();
+});
+
+document.getElementById('sph-select').addEventListener('change', e => {
+  if (editLocked()) { renderRoster(); return; }
+  state.shiftsPerHalf = parseInt(e.target.value);
+  if (currentShiftIndex >= totalShifts()) setCurrentShift(totalShifts() - 1);
+  saveFields('shiftsPerHalf');
+  renderRoster();
+});
+document.getElementById('mph-input').addEventListener('change', e => {
+  if (editLocked()) { renderRoster(); return; }
+  state.minutesPerHalf = Math.max(10, Math.min(45, parseInt(e.target.value) || 35));
+  saveFields('minutesPerHalf');
+  renderRoster();
+  updateClockUI();
 });
 
 document.getElementById('new-game-btn').addEventListener('click', () => {
@@ -1364,14 +1712,15 @@ document.getElementById('new-game-btn').addEventListener('click', () => {
     state.checkedIn = [];
     state.shifts = {};
     state.midShiftSubs = {};
-    state.timerElapsed = 0;
-    state.currentShiftIndex = 0;
+    state.clockBase = 0;
+    state.clockStartedAt = 0;
     state.locked = false;
-    timerRunning = false;
-    clearInterval(timerInterval);
-    lastAlarmShift = -1;
+    setCurrentShift(0);
+    lastShiftSeen = -1;
     transitionFollowGame = true;
-    saveState();
+    hideShiftBanner();
+    releaseWakeLock();
+    persist({ checkedIn: [], shifts: {}, midShiftSubs: {}, clockBase: 0, clockStartedAt: 0, locked: false }, { immediate: true });
     renderAll();
     toast('New game — fresh slate, roster kept');
   });
@@ -1383,78 +1732,133 @@ document.getElementById('check-all-btn').addEventListener('click', () => {
   } else {
     state.checkedIn = [...state.roster];
   }
-  saveState();
+  saveFields('checkedIn');
   renderRoster();
 });
 
 // ---- SHIFTS ----
-function totalShifts() { return state.halves * state.shiftsPerHalf; }
-function shiftKey(i) { return `shift_${i}`; }
-function getShift(i) { return state.shifts[shiftKey(i)] || {}; }
+function setCurrentShift(i) {
+  currentShiftIndex = Math.max(0, Math.min(totalShifts() - 1, i));
+  try { localStorage.setItem(localKey('shift'), String(currentShiftIndex)); } catch {}
+}
 
 function renderShifts() {
+  if (currentShiftIndex >= totalShifts()) setCurrentShift(totalShifts() - 1);
   renderShiftTabs();
+  renderStreakBanner();
   renderField();
   renderBench();
-  updateTimerDisplay();
+  updateNavAlerts();
 }
 
 function renderShiftTabs() {
   const bar = document.getElementById('shifts-top-bar');
-  let html = `<button class="lock-btn ${state.locked ? 'locked' : ''}" id="lock-btn">${state.locked ? '\u{1F512} Locked' : '\u{1F513} Open'}</button>`;
+  const live = liveShiftIndex();
+  let rows = '';
   for (let h = 0; h < state.halves; h++) {
-    html += `<span class="half-label">${h === 0 ? '1st' : '2nd'} Half</span>`;
+    rows += `<div class="shift-row"><span class="half-label">${h === 0 ? '1st' : '2nd'}</span>`;
     for (let s = 0; s < state.shiftsPerHalf; s++) {
       const idx = h * state.shiftsPerHalf + s;
-      html += `<button class="shift-tab ${idx === state.currentShiftIndex ? 'active' : ''}" data-shift="${idx}">Shift ${s + 1}</button>`;
+      const alert = shiftIsFull(idx) && streakViolations(idx).length > 0;
+      rows += `<button class="shift-tab ${idx === currentShiftIndex ? 'active' : ''} ${idx === live ? 'live' : ''}" data-shift="${idx}">
+        ${idx === live ? '<span class="tab-live">LIVE</span>' : ''}Shift ${s + 1}${alert ? '<span class="tab-alert"></span>' : ''}</button>`;
     }
+    rows += `</div>`;
   }
-  html += `<span style="margin-left:auto;display:flex;gap:6px;align-items:center;">
-    <label style="font-size:12px;color:var(--gray);">Shifts/half:</label>
-    <select id="sph-select" ${state.locked ? 'disabled' : ''} style="padding:4px 8px;border-radius:6px;border:none;background:rgba(255,255,255,0.15);color:white;font-size:13px;">
-      ${[2,3,4].map(n => `<option value="${n}" ${n === state.shiftsPerHalf ? 'selected' : ''}>${n}</option>`).join('')}
-    </select>
-    <label style="font-size:12px;color:var(--gray);">Min/half:</label>
-    <input type="number" id="mph-input" value="${state.minutesPerHalf}" min="10" max="45" ${state.locked ? 'disabled' : ''} style="width:50px;padding:4px 8px;border-radius:6px;border:none;background:rgba(255,255,255,0.15);color:white;font-size:13px;" />
-  </span>`;
-  bar.innerHTML = html;
+  bar.innerHTML = `<div class="shift-rows">${rows}</div>
+    <div class="lock-col"><button class="lock-btn ${state.locked ? 'locked' : ''}" id="lock-btn">${state.locked ? '\u{1F512}<br>Locked' : '\u{1F513}<br>Open'}</button></div>`;
 
   document.getElementById('lock-btn').addEventListener('click', () => {
     if (state.locked) {
       askConfirm('Unlock shifts for editing?', null, 'Yes — unlock', 'Cancel', () => {
         state.locked = false;
         toast('Shifts unlocked — edits allowed');
-        saveState();
+        saveFields('locked');
         renderShifts();
       });
     } else {
       state.locked = true;
+      clearBenchSelection(false);
       toast('\u{1F512} Shifts locked — lineups are protected');
-      saveState();
+      saveFields('locked');
       renderShifts();
     }
   });
 
   bar.querySelectorAll('.shift-tab').forEach(tab => {
     tab.addEventListener('click', () => {
-      state.currentShiftIndex = parseInt(tab.dataset.shift);
-      saveState();
+      setCurrentShift(parseInt(tab.dataset.shift));
+      clearBenchSelection(false);
       renderShifts();
     });
   });
+}
 
-  document.getElementById('sph-select').addEventListener('change', e => {
-    state.shiftsPerHalf = parseInt(e.target.value);
-    if (state.currentShiftIndex >= totalShifts()) state.currentShiftIndex = totalShifts() - 1;
-    saveState();
-    renderShifts();
-  });
+// Red banner above the field once the shift is full and someone is still
+// sitting for a 2nd straight shift
+function renderStreakBanner() {
+  const el = document.getElementById('shifts-streak-banner');
+  const i = currentShiftIndex;
+  const v = shiftIsFull(i) ? streakViolations(i) : [];
+  if (v.length === 0) { el.classList.remove('show'); el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="streak-title">⚠️ Sitting ${BENCH_STREAK_LIMIT} shifts in a row</div>` +
+    v.map(n => `<span class="streak-chip" data-name="${esc(n)}">${esc(n)} <span class="streak-n">· ${benchStreak(n, i)} straight</span></span>`).join('') +
+    `<div class="streak-hint">Tap a name to put them on in this shift</div>`;
+  el.classList.add('show');
+  el.querySelectorAll('.streak-chip').forEach(chip => chip.addEventListener('click', () => {
+    if (editLocked()) return;
+    openSwapInModal(i, chip.dataset.name, () => renderShifts());
+  }));
+}
 
-  document.getElementById('mph-input').addEventListener('change', e => {
-    state.minutesPerHalf = parseInt(e.target.value) || 35;
-    saveState();
+// "Put NAME on in shift i — who comes out?" Used by both streak banners.
+function openSwapInModal(i, name, after) {
+  const shift = getShift(i);
+  const entries = Object.entries(shift).sort((a, b) => a[1].localeCompare(b[1]));
+  const credit = plannedShifts();
+  const openPos = POSITIONS.find(p => !shift[p.id]);
+  let html = `<div class="modal-note">${esc(shiftDisplayName(i))}${state.locked ? ' · allowed while locked' : ''}</div>`;
+  if (openPos) html += `<div class="modal-player full-row" data-pos="${openPos.id}" style="background:var(--green);color:#06301a;">Open spot: ${fullPos(openPos.id)}</div>`;
+  html += entries.map(([pos, n]) =>
+    `<div class="modal-player" data-pos="${pos}" data-out="${esc(n)}">${esc(n)} <span class="mp-meta">${fullPos(pos)} · ${fmtShifts(credit[n] || 0)} shifts</span></div>`).join('');
+  const list = openModal(`Put ${name} on — who comes out?`, html);
+  list.querySelectorAll('.modal-player').forEach(el => el.addEventListener('click', () => {
+    if (!state.shifts[shiftKey(i)]) state.shifts[shiftKey(i)] = {};
+    const s = state.shifts[shiftKey(i)];
+    Object.keys(s).forEach(p => { if (s[p] === name) delete s[p]; });
+    s[el.dataset.pos] = name;
+    saveShift(i);
+    closeModal();
+    toast(el.dataset.out ? `${name} on for ${el.dataset.out} at ${el.dataset.pos.toUpperCase()}` : `${name} on at ${el.dataset.pos.toUpperCase()}`);
+    if (after) after();
+  }));
+}
+
+// ---- BENCH SELECTION (tap a bench player, then tap a spot) ----
+let selectedBench = null;
+
+function clearBenchSelection(rerender = true) {
+  if (!selectedBench) return;
+  selectedBench = null;
+  if (rerender) { renderField(); renderBench(); }
+}
+
+function slotTapped(posId) {
+  if (editLocked()) return;
+  if (selectedBench) {
+    const name = selectedBench;
+    selectedBench = null;
+    if (!state.shifts[shiftKey(currentShiftIndex)]) state.shifts[shiftKey(currentShiftIndex)] = {};
+    const shift = state.shifts[shiftKey(currentShiftIndex)];
+    const displaced = shift[posId];
+    Object.keys(shift).forEach(k => { if (shift[k] === name) delete shift[k]; });
+    shift[posId] = name;
+    saveShift(currentShiftIndex);
     renderShifts();
-  });
+    toast(displaced ? `${name} in at ${posId.toUpperCase()} · ${displaced} to the bench` : `${name} in at ${posId.toUpperCase()}`);
+    return;
+  }
+  openAssignModal(posId);
 }
 
 // ---- DRAG & DROP STATE ----
@@ -1463,10 +1867,11 @@ let dragJustFinished = false; // suppress click after a completed drag
 
 function renderField() {
   const field = document.getElementById('field');
-  const shift = getShift(state.currentShiftIndex);
-  const subs = (state.midShiftSubs || {})[shiftKey(state.currentShiftIndex)] || [];
+  const shift = getShift(currentShiftIndex);
+  const subs = (state.midShiftSubs || {})[shiftKey(currentShiftIndex)] || [];
   const subByPos = {};
   subs.forEach(s => { subByPos[s.pos] = s; });
+  field.classList.toggle('placing', !!selectedBench);
 
   field.innerHTML = POSITIONS.map(pos => {
     const player = shift[pos.id];
@@ -1475,7 +1880,7 @@ function renderField() {
     const subNote = (sub && player === sub.on) ? `<span class="sub-note">in for ${esc(sub.off)}</span>` : '';
     return `<div class="field-slot" style="left:${pos.x}%;top:${pos.y}%;" data-pos="${pos.id}">
       <span class="pos-label">${pos.label}</span>
-      <span class="player-badge ${filledClass}">${player ? esc(displayName(player)) : '—'}</span>
+      <span class="player-badge ${filledClass}">${player ? esc(player) : '—'}</span>
       ${subNote}
     </div>`;
   }).join('');
@@ -1484,9 +1889,8 @@ function renderField() {
     // --- Touch drag ---
     slot.addEventListener('touchstart', e => {
       const posId = slot.dataset.pos;
-      const shift = getShift(state.currentShiftIndex);
-      const player = shift[posId];
-      if (!player || state.locked) return; // only drag filled slots, never when locked
+      const player = getShift(currentShiftIndex)[posId];
+      if (!player || state.locked || selectedBench) return; // only drag filled slots, never when locked
       const touch = e.touches[0];
       dragState = { sourcePos: posId, playerName: player, ghost: null, moved: false, startX: touch.clientX, startY: touch.clientY };
     }, { passive: true });
@@ -1501,11 +1905,10 @@ function renderField() {
       e.preventDefault();
       dragState.moved = true;
 
-      // Create ghost if not yet
       if (!dragState.ghost) {
         const ghost = document.createElement('div');
         ghost.className = 'drag-ghost';
-        ghost.textContent = displayName(dragState.playerName);
+        ghost.textContent = dragState.playerName;
         document.body.appendChild(ghost);
         dragState.ghost = ghost;
         slot.classList.add('dragging');
@@ -1513,7 +1916,6 @@ function renderField() {
       dragState.ghost.style.left = touch.clientX + 'px';
       dragState.ghost.style.top = touch.clientY + 'px';
 
-      // Highlight drop target
       field.querySelectorAll('.field-slot').forEach(s => s.classList.remove('drag-over'));
       const target = document.elementFromPoint(touch.clientX, touch.clientY);
       const targetSlot = target && target.closest('.field-slot');
@@ -1523,20 +1925,17 @@ function renderField() {
     }, { passive: false });
 
     slot.addEventListener('touchend', e => {
-      // Empty slot tap — no drag was started, open modal
       if (!dragState) {
         e.preventDefault(); // prevent delayed click / ghost-click
-        openAssignModal(slot.dataset.pos);
+        slotTapped(slot.dataset.pos);
         return;
       }
       if (!dragState.moved) {
-        // Filled slot tap (no movement) — open modal
         e.preventDefault();
         dragState = null;
-        openAssignModal(slot.dataset.pos);
+        slotTapped(slot.dataset.pos);
         return;
       }
-      // Completed drag — find drop target
       e.preventDefault();
       const touch = e.changedTouches[0];
       const target = document.elementFromPoint(touch.clientX, touch.clientY);
@@ -1547,18 +1946,17 @@ function renderField() {
       cleanupDrag();
     });
 
-    // Click handler — opens modal for taps (both empty and filled slots)
-    slot.addEventListener('click', e => {
+    // Click handler — taps on desktop (touch taps are handled in touchend)
+    slot.addEventListener('click', () => {
       if (dragJustFinished) { dragJustFinished = false; return; }
-      openAssignModal(slot.dataset.pos);
+      slotTapped(slot.dataset.pos);
     });
 
     // --- Mouse drag ---
     slot.addEventListener('mousedown', e => {
       const posId = slot.dataset.pos;
-      const shift = getShift(state.currentShiftIndex);
-      const player = shift[posId];
-      if (!player || state.locked) return; // empty slot or locked — let click handle it
+      const player = getShift(currentShiftIndex)[posId];
+      if (!player || state.locked || selectedBench) return;
       e.preventDefault();
       dragState = { sourcePos: posId, playerName: player, ghost: null, moved: false, startX: e.clientX, startY: e.clientY };
 
@@ -1568,40 +1966,30 @@ function renderField() {
         const dy = e.clientY - dragState.startY;
         if (!dragState.moved && Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
         dragState.moved = true;
-
         if (!dragState.ghost) {
           const ghost = document.createElement('div');
           ghost.className = 'drag-ghost';
-          ghost.textContent = displayName(dragState.playerName);
+          ghost.textContent = dragState.playerName;
           document.body.appendChild(ghost);
           dragState.ghost = ghost;
           slot.classList.add('dragging');
         }
         dragState.ghost.style.left = e.clientX + 'px';
         dragState.ghost.style.top = e.clientY + 'px';
-
         field.querySelectorAll('.field-slot').forEach(s => s.classList.remove('drag-over'));
         const target = document.elementFromPoint(e.clientX, e.clientY);
         const ts = target && target.closest('.field-slot');
-        if (ts && ts.dataset.pos !== dragState.sourcePos) {
-          ts.classList.add('drag-over');
-        }
+        if (ts && ts.dataset.pos !== dragState.sourcePos) ts.classList.add('drag-over');
       }
 
       function onMouseUp(e) {
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
         if (!dragState) return;
-        if (!dragState.moved) {
-          // Was a tap — click handler will fire and open modal
-          dragState = null;
-          return;
-        }
+        if (!dragState.moved) { dragState = null; return; } // click handler opens the modal
         const target = document.elementFromPoint(e.clientX, e.clientY);
         const ts = target && target.closest('.field-slot');
-        if (ts && ts.dataset.pos !== dragState.sourcePos) {
-          completeDrop(dragState.sourcePos, ts.dataset.pos);
-        }
+        if (ts && ts.dataset.pos !== dragState.sourcePos) completeDrop(dragState.sourcePos, ts.dataset.pos);
         cleanupDrag();
       }
 
@@ -1611,282 +1999,451 @@ function renderField() {
   });
 }
 
+// Drag a player onto another spot: they swap if it's occupied, otherwise the
+// source spot opens up
 function completeDrop(sourcePos, targetPos) {
   if (editLocked()) return;
-  if (!state.shifts[shiftKey(state.currentShiftIndex)]) state.shifts[shiftKey(state.currentShiftIndex)] = {};
-  const shift = state.shifts[shiftKey(state.currentShiftIndex)];
-  const draggedPlayer = shift[sourcePos];
-  const displacedPlayer = shift[targetPos]; // may be undefined (empty slot)
-
-  // Move dragged player to target position
-  shift[targetPos] = draggedPlayer;
-  // Clear source — displaced player goes to bench (just remove from field)
-  delete shift[sourcePos];
-
-  saveState();
-  renderField();
-  renderBench();
+  if (!state.shifts[shiftKey(currentShiftIndex)]) state.shifts[shiftKey(currentShiftIndex)] = {};
+  const shift = state.shifts[shiftKey(currentShiftIndex)];
+  const dragged = shift[sourcePos];
+  const displaced = shift[targetPos];
+  shift[targetPos] = dragged;
+  if (displaced) shift[sourcePos] = displaced; else delete shift[sourcePos];
+  saveShift(currentShiftIndex);
+  renderShifts();
 }
 
 function cleanupDrag() {
-  if (dragState && dragState.ghost) {
-    dragState.ghost.remove();
-  }
-  document.querySelectorAll('.field-slot').forEach(s => {
-    s.classList.remove('dragging', 'drag-over');
-  });
+  if (dragState && dragState.ghost) dragState.ghost.remove();
+  document.querySelectorAll('.field-slot').forEach(s => s.classList.remove('dragging', 'drag-over'));
   dragJustFinished = true;
   dragState = null;
-  // Reset flag after click event fires (click fires ~0ms after mouseup/touchend)
   setTimeout(() => { dragJustFinished = false; }, 50);
 }
 
 function renderBench() {
   const benchList = document.getElementById('bench-list');
   const benchTitle = document.getElementById('bench-title');
-  const shift = getShift(state.currentShiftIndex);
+  const i = currentShiftIndex;
+  const shift = getShift(i);
   const onField = new Set(Object.values(shift));
-  const bench = state.checkedIn.filter(n => !onField.has(n));
-  benchTitle.textContent = `Bench (${bench.length})`;
+  const credit = plannedShifts();
+  const full = shiftIsFull(i);
+  const bench = state.checkedIn.filter(n => !onField.has(n)).sort((a, b) => {
+    // Streak players first, then "sat last shift", then fewest planned shifts
+    const sa = benchStreak(a, i - 1), sb = benchStreak(b, i - 1);
+    if (sa !== sb) return sb - sa;
+    if (credit[a] !== credit[b]) return credit[a] - credit[b];
+    return a.localeCompare(b);
+  });
 
-  benchList.innerHTML = [...state.checkedIn].sort((a, b) => a.localeCompare(b)).map(name => {
-    const isOnField = onField.has(name);
-    return `<div class="bench-player ${isOnField ? 'on-field' : ''}" data-name="${esc(name)}">${esc(displayName(name))}</div>`;
+  if (selectedBench && !bench.includes(selectedBench)) selectedBench = null;
+  benchTitle.innerHTML = selectedBench
+    ? `<span class="bench-hint">Tap a spot on the field for ${esc(selectedBench)}</span>`
+    : `Bench (${bench.length})${state.checkedIn.length === 0 ? '' : ' · number = planned shifts'}`;
+
+  if (state.checkedIn.length === 0) {
+    benchList.innerHTML = `<div class="bench-empty">No one checked in — use Roster (⋯) first</div>`;
+    return;
+  }
+  if (bench.length === 0) {
+    benchList.innerHTML = `<div class="bench-empty">Everyone checked in is on the field</div>`;
+    return;
+  }
+
+  benchList.innerHTML = bench.map(name => {
+    const streak = full ? benchStreak(name, i) : 0;
+    const violation = streak >= BENCH_STREAK_LIMIT;
+    const satLast = !violation && satLastShift(name, i);
+    const cls = violation ? 'streak' : satLast ? 'sat-last' : '';
+    const tag = violation ? `<span class="bench-tag">${streak} straight</span>` : satLast ? `<span class="bench-tag">sat last</span>` : '';
+    return `<div class="bench-player ${cls} ${selectedBench === name ? 'selected' : ''}" data-name="${esc(name)}">
+      ${esc(name)} <span class="bench-count">${fmtShifts(credit[name] || 0)}</span>${tag}</div>`;
   }).join('');
 
-  benchList.querySelectorAll('.bench-player:not(.on-field)').forEach(el => {
+  benchList.querySelectorAll('.bench-player').forEach(el => {
     el.addEventListener('click', () => {
       if (editLocked()) return;
       const name = el.dataset.name;
-      const shift = getShift(state.currentShiftIndex);
-      const emptyPos = POSITIONS.find(p => !shift[p.id]);
-      if (emptyPos) {
-        if (!state.shifts[shiftKey(state.currentShiftIndex)]) state.shifts[shiftKey(state.currentShiftIndex)] = {};
-        state.shifts[shiftKey(state.currentShiftIndex)][emptyPos.id] = name;
-        saveState();
-        renderField();
-        renderBench();
-      }
-    });
-  });
-}
-
-// Assign modal
-let assigningPos = null;
-
-function openAssignModal(posId) {
-  if (editLocked()) return;
-  assigningPos = posId;
-  const overlay = document.getElementById('modal-overlay');
-  const title = document.getElementById('modal-title');
-  const playersList = document.getElementById('modal-players');
-  const pos = POSITIONS.find(p => p.id === posId);
-  const shift = getShift(state.currentShiftIndex);
-  const currentPlayer = shift[posId];
-
-  title.textContent = `Assign ${pos.label}`;
-
-  let html = '';
-  if (currentPlayer) {
-    html += `<div class="modal-player full-row" data-assign="" style="color:var(--red);">Remove ${esc(displayName(currentPlayer))}</div>`;
-  }
-  const posByName = {};
-  Object.entries(shift).forEach(([k, v]) => { posByName[v] = k; });
-  const sorted = [...state.checkedIn].sort((a, b) => a.localeCompare(b));
-  sorted.filter(n => !posByName[n]).forEach(name => {
-    html += `<div class="modal-player" data-assign="${esc(name)}">${esc(name)}</div>`;
-  });
-  const fieldNames = sorted.filter(n => posByName[n] && n !== currentPlayer);
-  if (fieldNames.length > 0) {
-    html += `<div class="modal-divider">Already on the field — picking one moves him here</div>`;
-    fieldNames.forEach(name => {
-      html += `<div class="modal-player dimmed" data-assign="${esc(name)}">${esc(name)} <span style="color:var(--gray);font-size:12px;">(${posByName[name].toUpperCase()})</span></div>`;
-    });
-  }
-
-  playersList.innerHTML = html;
-  overlay.classList.add('active');
-
-  playersList.querySelectorAll('.modal-player').forEach(el => {
-    el.addEventListener('click', () => {
-      const name = el.dataset.assign;
-      if (!state.shifts[shiftKey(state.currentShiftIndex)]) state.shifts[shiftKey(state.currentShiftIndex)] = {};
-      const shift = state.shifts[shiftKey(state.currentShiftIndex)];
-      if (name) {
-        Object.keys(shift).forEach(k => { if (shift[k] === name) delete shift[k]; });
-        shift[assigningPos] = name;
-      } else {
-        delete shift[assigningPos];
-      }
-      saveState();
-      overlay.classList.remove('active');
+      selectedBench = selectedBench === name ? null : name;
       renderField();
       renderBench();
     });
   });
 }
 
-document.getElementById('modal-close').addEventListener('click', () => {
-  document.getElementById('modal-overlay').classList.remove('active');
-});
+// Assign modal (tap a spot with nobody selected on the bench)
+function openAssignModal(posId) {
+  if (editLocked()) return;
+  const i = currentShiftIndex;
+  const pos = POSITIONS.find(p => p.id === posId);
+  const shift = getShift(i);
+  const currentPlayer = shift[posId];
+  const credit = plannedShifts();
+  const full = shiftIsFull(i);
+
+  let html = '';
+  if (currentPlayer) {
+    html += `<div class="modal-player full-row" data-assign="" style="color:var(--red);">Remove ${esc(currentPlayer)}</div>`;
+  }
+  const posByName = {};
+  Object.entries(shift).forEach(([k, v]) => { posByName[v] = k; });
+  const benchNames = state.checkedIn.filter(n => !posByName[n]).sort((a, b) => {
+    const sa = benchStreak(a, i - 1), sb = benchStreak(b, i - 1);
+    if (sa !== sb) return sb - sa;
+    if (credit[a] !== credit[b]) return credit[a] - credit[b];
+    return a.localeCompare(b);
+  });
+  benchNames.forEach(name => {
+    const streak = full ? benchStreak(name, i) : 0;
+    const tag = streak >= BENCH_STREAK_LIMIT ? `<span class="mp-tag red">${streak} straight</span>`
+      : satLastShift(name, i) ? `<span class="mp-tag amber">sat last</span>` : '';
+    html += `<div class="modal-player" data-assign="${esc(name)}">${esc(name)}<span class="mp-meta">${fmtShifts(credit[name] || 0)} shifts${tag}</span></div>`;
+  });
+  const fieldNames = Object.keys(posByName).filter(n => n !== currentPlayer).sort((a, b) => a.localeCompare(b));
+  if (fieldNames.length > 0) {
+    html += `<div class="modal-divider">Already on the field — picking one moves them here</div>`;
+    fieldNames.forEach(name => {
+      html += `<div class="modal-player dimmed" data-assign="${esc(name)}">${esc(name)} <span class="mp-meta">(${posByName[name].toUpperCase()})</span></div>`;
+    });
+  }
+
+  const list = openModal(`Assign ${pos.label}`, html);
+  list.querySelectorAll('.modal-player').forEach(el => {
+    el.addEventListener('click', () => {
+      const name = el.dataset.assign;
+      if (!state.shifts[shiftKey(i)]) state.shifts[shiftKey(i)] = {};
+      const s = state.shifts[shiftKey(i)];
+      if (name) {
+        // If the spot is taken and the newcomer is on the field, swap the two
+        const from = posByName[name];
+        const occupant = s[posId];
+        Object.keys(s).forEach(k => { if (s[k] === name) delete s[k]; });
+        s[posId] = name;
+        if (from && occupant && occupant !== name) s[from] = occupant;
+      } else {
+        delete s[posId];
+      }
+      saveShift(i);
+      closeModal();
+      renderShifts();
+    });
+  });
+}
+
+document.getElementById('modal-close').addEventListener('click', closeModal);
 document.getElementById('modal-overlay').addEventListener('click', e => {
-  if (e.target === e.currentTarget) e.currentTarget.classList.remove('active');
+  if (e.target === e.currentTarget) closeModal();
 });
 
 document.getElementById('clear-shift-btn').addEventListener('click', () => {
   if (editLocked()) return;
   askConfirm('Clear all players from this shift?', null, 'Yes — clear it', 'Cancel', () => {
-    state.shifts[shiftKey(state.currentShiftIndex)] = {};
-    saveState();
-    renderField();
-    renderBench();
+    state.shifts[shiftKey(currentShiftIndex)] = {};
+    clearBenchSelection(false);
+    saveShift(currentShiftIndex);
+    renderShifts();
   });
 });
 
 document.getElementById('copy-prev-btn').addEventListener('click', () => {
   if (editLocked()) return;
-  if (state.currentShiftIndex === 0) { toast('No previous shift'); return; }
-  const prev = getShift(state.currentShiftIndex - 1);
-  state.shifts[shiftKey(state.currentShiftIndex)] = { ...prev };
-  saveState();
-  renderField();
-  renderBench();
+  if (currentShiftIndex === 0) { toast('No previous shift'); return; }
+  const prev = getShift(currentShiftIndex - 1);
+  if (Object.keys(prev).length === 0) { toast('Previous shift is empty'); return; }
+  state.shifts[shiftKey(currentShiftIndex)] = { ...prev };
+  clearBenchSelection(false);
+  saveShift(currentShiftIndex);
+  renderShifts();
+  toast('Copied — swap in the bench players who sat');
 });
 
-// ---- TIMER ----
-let timerInterval = null;
-let timerRunning = false;
+// =====================================================================
+// GAME CLOCK
+// Shared: clockBase (seconds) + clockStartedAt (epoch ms, 0 = paused).
+// The tick loop only re-renders; it never mutates state, so reloads,
+// backgrounding, and other phones all agree on the time.
+// =====================================================================
+let tickInterval = null;
+let lastShiftSeen = -1;
 
-function shiftDuration() {
-  return (state.minutesPerHalf / state.shiftsPerHalf) * 60;
+function shiftDuration() { return (state.minutesPerHalf / state.shiftsPerHalf) * 60; }
+function halfLength() { return state.minutesPerHalf * 60; }
+function gameLength() { return halfLength() * state.halves; }
+function clockRunning() { return !!state.clockStartedAt; }
+function clockElapsed() {
+  const e = clockRunning() ? state.clockBase + (Date.now() - state.clockStartedAt) / 1000 : state.clockBase;
+  return Math.max(0, Math.min(gameLength(), e));
+}
+function gameStarted() { return clockRunning() || state.clockBase > 0; }
+function shiftAt(elapsed) { return Math.max(0, Math.min(Math.floor(elapsed / shiftDuration()), totalShifts() - 1)); }
+// The shift the game clock says we're in, or null before kickoff
+function liveShiftIndex() { return gameStarted() ? shiftAt(clockElapsed()) : null; }
+// Shift used for in-shift subs: the live one during a game, else the tab you're looking at
+function gameCurrentShiftIndex() { const l = liveShiftIndex(); return l === null ? currentShiftIndex : l; }
+function isHalftime() { return !clockRunning() && state.halves > 1 && Math.abs(state.clockBase - halfLength()) < 0.5; }
+function isFullTime() { return !clockRunning() && state.clockBase >= gameLength() - 0.5; }
+function fmtClock(sec) { sec = Math.max(0, sec); return `${Math.floor(sec / 60)}:${Math.floor(sec % 60).toString().padStart(2, '0')}`; }
+
+function startClock() {
+  if (clockRunning()) return;
+  if (isFullTime()) { toast('Full time — reset the clock (tap it) for a new game'); return; }
+  unlockAudio();
+  state.clockStartedAt = Date.now();
+  lastShiftSeen = shiftAt(state.clockBase);
+  saveClock();
+  hideShiftBanner();
+  requestWakeLock();
+  ensureTicking();
+  updateClockUI();
+}
+
+function pauseClock(atSeconds) {
+  if (!clockRunning()) return;
+  const e = atSeconds !== undefined ? atSeconds : clockElapsed();
+  state.clockBase = Math.round(e * 10) / 10;
+  state.clockStartedAt = 0;
+  saveClock();
+  releaseWakeLock();
+  updateClockUI();
+}
+
+function resetClock() {
+  state.clockBase = 0;
+  state.clockStartedAt = 0;
+  lastShiftSeen = -1;
+  saveClock();
+  releaseWakeLock();
+  hideShiftBanner();
+  updateClockUI();
 }
 
 document.getElementById('timer-start-btn').addEventListener('click', () => {
-  if (timerRunning) {
-    timerRunning = false;
-    clearInterval(timerInterval);
-    updateTimerBtn();
+  if (clockRunning()) {
+    // Pausing mid-play is easy to hit by accident, so confirm it
+    askConfirm('Pause the game clock?', 'The clock keeps running for the ref — only pause for a real stoppage.', 'Yes — pause', 'Keep running', () => {
+      pauseClock();
+      toast('Clock paused');
+    });
   } else {
-    timerRunning = true;
-    let lastTick = Date.now();
-    timerInterval = setInterval(() => {
-      const now = Date.now();
-      state.timerElapsed += (now - lastTick) / 1000;
-      lastTick = now;
-      updateTimerDisplay();
-      checkShiftAlarm();
-    }, 250);
-    updateTimerBtn();
+    startClock();
   }
 });
 
-function resetClock() {
-  timerRunning = false;
-  state.timerElapsed = 0;
-  clearInterval(timerInterval);
-  lastAlarmShift = -1;
-  saveState();
-  updateTimerDisplay();
-  updateTimerBtn();
+function ensureTicking() {
+  if (tickInterval) return;
+  tickInterval = setInterval(tick, 250);
 }
 
-function updateTimerDisplay() {
+function tick() {
+  if (!clockRunning()) { updateClockUI(); return; }
+  const e = clockElapsed();
+  // Auto-pause at the end of a half, exactly on the boundary
+  const startHalf = Math.min(state.halves - 1, Math.floor(state.clockBase / halfLength()));
+  const halfEnd = (startHalf + 1) * halfLength();
+  if (e >= halfEnd) {
+    pauseClock(halfEnd);
+    beep(3);
+    if (halfEnd >= gameLength()) showShiftBanner('fulltime', 'Full time', 'Tap the clock to reset for the next game');
+    else showShiftBanner('halftime', 'Halftime', 'Tap ▶ when the 2nd half kicks off');
+    renderIfActive('transitions');
+    return;
+  }
+  const s = shiftAt(e);
+  if (s !== lastShiftSeen) {
+    const prev = lastShiftSeen;
+    lastShiftSeen = s;
+    if (prev >= 0 && s > prev) {
+      beep(3);
+      showShiftBanner('shift', `Shift ${(s % state.shiftsPerHalf) + 1} — call subs`, 'Tap to open Call Subs', () => showScreen('transitions'));
+      renderIfActive('shifts');
+      renderIfActive('transitions');
+    }
+  }
+  updateClockUI();
+}
+
+function renderIfActive(key) {
+  const el = document.getElementById(screens[key]);
+  if (el && el.classList.contains('active')) {
+    if (key === 'shifts') renderShifts();
+    if (key === 'transitions') renderTransitions();
+  }
+}
+
+function updateClockUI() {
   const display = document.getElementById('timer-display');
   const label = document.getElementById('timer-label');
-  const info = document.getElementById('timer-shift-info');
+  const nav = document.getElementById('nav');
+  const btn = document.getElementById('timer-start-btn');
   const dur = shiftDuration();
-  const gameElapsed = state.timerElapsed;
-  const currentShiftNum = Math.min(Math.floor(gameElapsed / dur), totalShifts() - 1);
-  const shiftElapsed = gameElapsed - (currentShiftNum * dur);
+  const e = clockElapsed();
+  const running = clockRunning();
+  const s = shiftAt(e);
+  const shiftElapsed = e - s * dur;
   const remaining = Math.max(0, dur - shiftElapsed);
 
-  const mins = Math.floor(remaining / 60);
-  const secs = Math.floor(remaining % 60);
-  display.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
-
+  nav.className = 'nav';
   display.className = 'timer-display';
-  if (remaining < 60 && remaining > 15) display.classList.add('warning');
-  if (remaining <= 15 && timerRunning) display.classList.add('danger');
+  btn.disabled = false;
 
-  const halfNum = Math.floor(currentShiftNum / state.shiftsPerHalf) + 1;
-  const shiftInHalf = (currentShiftNum % state.shiftsPerHalf) + 1;
-  label.textContent = `Half ${halfNum} · Shift ${shiftInHalf}`;
+  if (!gameStarted()) {
+    display.textContent = fmtClock(dur);
+    label.innerHTML = `<span class="clock-state">Kickoff</span> · tap ▶ to start`;
+  } else if (isFullTime()) {
+    display.textContent = '0:00';
+    label.innerHTML = `<span class="clock-state">Full time</span>`;
+    nav.classList.add('fulltime');
+    btn.disabled = true;
+  } else if (isHalftime()) {
+    display.textContent = fmtClock(dur);
+    label.innerHTML = `<span class="clock-state">Halftime</span> · ▶ starts 2nd half`;
+    nav.classList.add('halftime');
+  } else {
+    display.textContent = fmtClock(remaining);
+    const where = `H${halfOf(s) + 1} · Shift ${(s % state.shiftsPerHalf) + 1}`;
+    if (!running) {
+      label.innerHTML = `<span class="clock-state">PAUSED</span> · ${where}`;
+      nav.classList.add('paused');
+    } else {
+      label.textContent = `${where} · next sub`;
+      if (remaining < 60 && remaining > 15) { display.classList.add('warning'); nav.classList.add('warning'); }
+      if (remaining <= 15) { display.classList.add('danger'); nav.classList.add('danger'); }
+    }
+  }
+  if (!gameStarted() || isHalftime() || isFullTime()) {
+    label.innerHTML += ' <span class="clock-edit">&#9998;</span>';
+  } else {
+    label.innerHTML += ' <span class="clock-edit">&#9998;</span>';
+  }
 
-  const gameMins = Math.floor(gameElapsed / 60);
-  const gameSecs = Math.floor(gameElapsed % 60);
-  info.textContent = `Game: ${gameMins}:${gameSecs.toString().padStart(2, '0')} | ${Math.round(dur / 60)} min shifts`;
+  // Play / pause button
+  if (running) {
+    btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor"><rect x="2.2" y="1.5" width="3.6" height="11" rx="1.3"/><rect x="8.2" y="1.5" width="3.6" height="11" rx="1.3"/></svg>';
+    btn.className = 'timer-btn pause';
+    btn.title = 'Pause the game clock';
+  } else {
+    btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor"><path d="M3.5 1.8v10.4a.6.6 0 0 0 .92.5l8.16-5.2a.6.6 0 0 0 0-1L4.42 1.3a.6.6 0 0 0-.92.5z"/></svg>';
+    btn.className = 'timer-btn start';
+    btn.title = 'Start the game clock';
+  }
 
   // Keep Call Subs in sync with the game clock while that screen is open
   const transScreen = document.getElementById('transitions-screen');
-  if (transScreen && transScreen.classList.contains('active')) {
+  if (transScreen.classList.contains('active')) {
     updateSubCountdown();
     if (transitionFollowGame && selectedTransition !== upcomingTransition()) renderTransitions();
   }
 }
 
-function updateTimerBtn() {
-  const btn = document.getElementById('timer-start-btn');
-  if (timerRunning) {
-    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="2.2" y="1.5" width="3.6" height="11" rx="1.3"/><rect x="8.2" y="1.5" width="3.6" height="11" rx="1.3"/></svg>';
-    btn.className = 'timer-btn pause';
-    btn.title = 'Pause the game clock';
+// Remote snapshots can start/stop the clock from another phone; keep the tick
+// loop, wake lock and alarm bookkeeping in step with whatever state says
+function syncClockSideEffects() {
+  if (clockRunning()) {
+    ensureTicking();
+    requestWakeLock();
+    if (lastShiftSeen < 0) lastShiftSeen = shiftAt(clockElapsed());
   } else {
-    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M3.5 1.8v10.4a.6.6 0 0 0 .92.5l8.16-5.2a.6.6 0 0 0 0-1L4.42 1.3a.6.6 0 0 0-.92.5z"/></svg>';
-    btn.className = 'timer-btn start';
-    btn.title = 'Start the game clock';
+    releaseWakeLock();
   }
 }
+const _renderAllInner = renderAll;
+renderAll = function () { syncClockSideEffects(); _renderAllInner(); };
 
-let lastAlarmShift = -1;
-function checkShiftAlarm() {
-  const dur = shiftDuration();
-  const currentShiftNum = Math.floor(state.timerElapsed / dur);
-  if (currentShiftNum > lastAlarmShift && currentShiftNum > 0 && currentShiftNum < totalShifts()) {
-    lastAlarmShift = currentShiftNum;
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      [0, 200, 400].forEach(delay => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.frequency.value = 880;
-        gain.gain.value = 0.3;
-        osc.start(ctx.currentTime + delay / 1000);
-        osc.stop(ctx.currentTime + delay / 1000 + 0.15);
-      });
-    } catch {}
-  }
+// ---- SHIFT BANNER ----
+let bannerTimeout = null;
+function showShiftBanner(kind, main, sub, onTap) {
+  const el = document.getElementById('shift-banner');
+  el.className = 'shift-banner show ' + kind;
+  document.getElementById('shift-banner-main').textContent = main;
+  document.getElementById('shift-banner-sub').textContent = sub || '';
+  el.onclick = e => { if (e.target.id === 'shift-banner-x') { hideShiftBanner(); return; } if (onTap) { hideShiftBanner(); onTap(); } };
+  clearTimeout(bannerTimeout);
+  if (kind === 'shift') bannerTimeout = setTimeout(hideShiftBanner, 45000);
+}
+function hideShiftBanner() {
+  clearTimeout(bannerTimeout);
+  const el = document.getElementById('shift-banner');
+  el.className = 'shift-banner';
 }
 
-// ---- TRANSITIONS ----
+// ---- AUDIO (unlocked from the play tap so iOS lets it sound later) ----
+let audioCtx = null;
+function unlockAudio() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    // A silent blip keeps iOS from re-suspending the context
+    const buf = audioCtx.createBuffer(1, 1, 22050);
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf; src.connect(audioCtx.destination); src.start(0);
+  } catch {}
+}
+function beep(n) {
+  try {
+    if (!audioCtx) return;
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    for (let i = 0; i < n; i++) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.frequency.value = 880;
+      gain.gain.value = 0.3;
+      osc.start(audioCtx.currentTime + i * 0.2);
+      osc.stop(audioCtx.currentTime + i * 0.2 + 0.15);
+    }
+  } catch {}
+}
+
+// ---- WAKE LOCK (screen stays on while the clock runs) ----
+let wakeLock = null;
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator) || wakeLock) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+  } catch (err) { wakeLock = null; }
+}
+function releaseWakeLock() {
+  if (wakeLock) { try { wakeLock.release(); } catch {} wakeLock = null; }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    if (clockRunning()) requestWakeLock();
+    updateClockUI();
+    renderActiveScreen();
+  }
+});
+
+// ---- TRANSITIONS (Call Subs) ----
 // The screen follows the game clock by default: it auto-selects the transition
-// into the UPCOMING shift. Arrow buttons override; NOW resumes following.
+// into the UPCOMING shift, but for SUB_GRACE_SECONDS after a boundary it stays
+// on the transition that just happened so the callout doesn't vanish mid-read.
 let transitionFollowGame = true;
 let selectedTransition = 1;
 
-function gameCurrentShiftIndex() {
-  if (state.timerElapsed > 0 || timerRunning) {
-    return Math.min(Math.floor(state.timerElapsed / shiftDuration()), totalShifts() - 1);
-  }
-  return state.currentShiftIndex;
-}
-
 function upcomingTransition() {
-  const cur = Math.min(Math.floor(state.timerElapsed / shiftDuration()), totalShifts() - 1);
-  return Math.max(1, Math.min(cur + 1, totalShifts() - 1));
+  const total = totalShifts();
+  if (!gameStarted()) return Math.max(1, Math.min(currentShiftIndex + 1, total - 1));
+  const e = clockElapsed();
+  const dur = shiftDuration();
+  const cur = shiftAt(e);
+  const sinceBoundary = e - cur * dur;
+  let t = (cur >= 1 && sinceBoundary < SUB_GRACE_SECONDS) ? cur : cur + 1;
+  return Math.max(1, Math.min(t, total - 1));
+}
+function inSubWindow() {
+  if (!gameStarted()) return false;
+  const e = clockElapsed();
+  const cur = shiftAt(e);
+  return cur >= 1 && (e - cur * shiftDuration()) < SUB_GRACE_SECONDS;
 }
 
 function transitionLabel(i) {
   const inHalf = i % state.shiftsPerHalf;
   if (inHalf === 0) return { main: 'Halftime', sub: 'into 2nd Half · Shift 1' };
-  const halfName = Math.floor(i / state.shiftsPerHalf) === 0 ? '1st Half' : '2nd Half';
-  return { main: `Shift ${inHalf} → ${inHalf + 1}`, sub: halfName };
-}
-
-function shiftDisplayName(i) {
-  const half = Math.floor(i / state.shiftsPerHalf) === 0 ? '1st Half' : '2nd Half';
-  return `${half} · Shift ${(i % state.shiftsPerHalf) + 1}`;
+  return { main: `Shift ${inHalf} → ${inHalf + 1}`, sub: halfName(halfOf(i)) };
 }
 
 function renderTransitions() {
@@ -1894,37 +2451,31 @@ function renderTransitions() {
   if (transitionFollowGame) selectedTransition = upcomingTransition();
   selectedTransition = Math.max(1, Math.min(selectedTransition, totalShifts() - 1));
   const lbl = transitionLabel(selectedTransition);
-  const gameStarted = state.timerElapsed > 0 || timerRunning;
-  const isNext = gameStarted && selectedTransition === upcomingTransition();
+  const isNext = gameStarted() && selectedTransition === upcomingTransition();
   document.getElementById('transition-label-main').textContent = lbl.main;
-  document.getElementById('transition-label-sub').textContent = lbl.sub + (isNext ? ' · up next' : '');
+  document.getElementById('transition-label-sub').textContent = lbl.sub + (isNext ? (inSubWindow() ? ' · now' : ' · up next') : '');
   document.getElementById('trans-prev').disabled = selectedTransition <= 1;
   document.getElementById('trans-next').disabled = selectedTransition >= totalShifts() - 1;
-  // Following the game clock → "● LIVE" indicator; browsing with the arrows → "GO LIVE" button to snap back
   const nowChip = document.getElementById('trans-now');
   nowChip.classList.toggle('following', transitionFollowGame);
   nowChip.innerHTML = transitionFollowGame ? '&#9679; LIVE' : 'GO LIVE';
   renderTransitionDetail(selectedTransition);
   updateSubCountdown();
+  updateNavAlerts();
 }
 
 function updateSubCountdown() {
   const el = document.getElementById('sub-countdown');
-  if (!el) return;
-  if (state.timerElapsed <= 0 && !timerRunning) {
-    el.textContent = 'Start the timer on Shifts to follow the game';
-    return;
-  }
+  el.classList.remove('window');
+  if (!gameStarted()) { el.textContent = 'Start the clock (▶ above) to follow the game'; return; }
+  if (isFullTime()) { el.textContent = 'Full time'; return; }
+  if (isHalftime()) { el.textContent = 'Halftime — make the halftime subs'; el.classList.add('window'); return; }
   const dur = shiftDuration();
-  const cur = Math.floor(state.timerElapsed / dur);
-  if (cur >= totalShifts() - 1) {
-    el.textContent = 'Final shift — no subs left';
-    return;
-  }
-  const remaining = Math.max(0, dur * (cur + 1) - state.timerElapsed);
-  const m = Math.floor(remaining / 60);
-  const s = Math.floor(remaining % 60);
-  el.textContent = `Next sub in ${m}:${s.toString().padStart(2, '0')}`;
+  const e = clockElapsed();
+  const cur = shiftAt(e);
+  if (inSubWindow()) { el.textContent = 'Sub window — make these changes now'; el.classList.add('window'); return; }
+  if (cur >= totalShifts() - 1) { el.textContent = 'Final shift — no subs left'; return; }
+  el.textContent = `Next sub in ${fmtClock(dur * (cur + 1) - e)}` + (clockRunning() ? '' : ' (paused)');
 }
 
 document.getElementById('trans-prev').addEventListener('click', () => {
@@ -1942,79 +2493,92 @@ document.getElementById('trans-now').addEventListener('click', () => {
   renderTransitions();
 });
 
+// Pair each player coming on with the player they replace. First by
+// position (same spot vacated), then whoever is left, in order.
+function computeTransition(prev, next) {
+  const prevPos = {}, nextPos = {};
+  Object.entries(prev).forEach(([p, n]) => { prevPos[n] = p; });
+  Object.entries(next).forEach(([p, n]) => { nextPos[n] = p; });
+  const comingOff = Object.keys(prevPos).filter(n => !nextPos[n]);
+  const comingOn = POSITIONS.map(p => next[p.id]).filter(n => n && !prevPos[n]);
+  const staying = Object.keys(prevPos).filter(n => nextPos[n]);
+  const moving = staying.filter(n => prevPos[n] !== nextPos[n]);
+  const same = staying.filter(n => prevPos[n] === nextPos[n]);
+
+  const pairs = [];
+  const usedOff = new Set();
+  const unpairedOn = [];
+  comingOn.forEach(n => {
+    const p = nextPos[n];
+    const was = prev[p];
+    if (was && comingOff.includes(was) && !usedOff.has(was)) { pairs.push({ off: was, on: n, pos: p }); usedOff.add(was); }
+    else unpairedOn.push(n);
+  });
+  const leftoverOff = comingOff.filter(n => !usedOff.has(n));
+  unpairedOn.forEach(n => { pairs.push({ off: leftoverOff.shift() || null, on: n, pos: nextPos[n] }); });
+  leftoverOff.forEach(n => pairs.push({ off: n, on: null, pos: prevPos[n] }));
+  return { pairs, moving, same, prevPos, nextPos };
+}
+
 function renderTransitionDetail(toIndex) {
   const box = document.getElementById('callout-box');
   const prev = getShift(toIndex - 1);
   const next = getShift(toIndex);
 
   if (Object.keys(prev).length === 0 || Object.keys(next).length === 0) {
-    box.innerHTML = '<div class="no-changes">Fill in both shifts to see transitions.</div>';
+    box.innerHTML = `<div class="no-changes">Fill in ${shiftDisplayName(toIndex - 1)} and ${shiftDisplayName(toIndex)} on the Shifts tab to see this callout.</div>`;
     return;
   }
 
-  const prevOnField = new Set(Object.values(prev));
-  const nextOnField = new Set(Object.values(next));
-  const nextPosMap = {};
-  Object.entries(next).forEach(([pos, name]) => { nextPosMap[name] = pos; });
-  const prevPosMap = {};
-  Object.entries(prev).forEach(([pos, name]) => { prevPosMap[name] = pos; });
-
-  const comingOff = [...prevOnField].filter(n => !nextOnField.has(n));
-  const comingOn = [...nextOnField].filter(n => !prevOnField.has(n));
-  const staying = [...prevOnField].filter(n => nextOnField.has(n));
-  const stayingSamePos = staying.filter(n => prevPosMap[n] === nextPosMap[n]);
-  const changingPos = staying.filter(n => prevPosMap[n] !== nextPosMap[n]);
-
+  const t = computeTransition(prev, next);
   let html = '';
+
+  // Bench-streak alert for the shift we're subbing INTO
+  const v = streakViolations(toIndex);
+  if (v.length > 0) {
+    html += `<div class="streak-banner show" id="trans-streak-banner">
+      <div class="streak-title">⚠️ Sitting ${BENCH_STREAK_LIMIT} shifts in a row</div>
+      ${v.map(n => `<span class="streak-chip" data-name="${esc(n)}">${esc(n)} <span class="streak-n">· ${benchStreak(n, toIndex)} straight</span></span>`).join('')}
+      <div class="streak-hint">Tap a name to swap them into ${shiftDisplayName(toIndex)}</div>
+    </div>`;
+  }
 
   const openSpots = POSITIONS.filter(p => !next[p.id]);
   if (openSpots.length > 0) {
     html += `<div class="transition-section">
-      <div class="transition-item" style="background:rgba(230,57,70,0.35);font-weight:700;">⚠️ ${openSpots.length} open spot${openSpots.length > 1 ? 's' : ''} in this shift: ${openSpots.map(p => fullPos(p.id)).join(', ')} — fill on the Shifts tab</div>
+      <div class="transition-item warn">⚠️ ${openSpots.length} open spot${openSpots.length > 1 ? 's' : ''} in ${shiftDisplayName(toIndex)}: ${openSpots.map(p => fullPos(p.id)).join(', ')} — fill on the Shifts tab</div>
     </div>`;
   }
 
-  if (comingOff.length > 0) {
+  if (t.pairs.length > 0) {
+    html += `<div class="transition-section"><h3 class="subs">SUBS (${t.pairs.length})</h3>` +
+      t.pairs.map(p => `<div class="sub-pair">
+        <div class="sub-off"><div class="sub-tag">Off</div>${p.off ? `<div class="sub-name">${esc(p.off)}</div>` : `<div class="sub-none">nobody — spot was open</div>`}</div>
+        <div class="sub-on"><div class="sub-tag">On</div>${p.on ? `<div class="sub-name">${esc(p.on)}</div><div class="sub-pos">${fullPos(p.pos)}</div>` : `<div class="sub-none">nobody — spot left open</div>`}</div>
+      </div>`).join('') + `</div>`;
+  }
+
+  if (t.moving.length > 0) {
     html += `<div class="transition-section">
-      <h3 class="off">COMING OFF (${comingOff.length})</h3>
-      ${comingOff.map(n => `<div class="transition-item off callout-big">${esc(displayName(n))}</div>`).join('')}
+      <h3 class="move">SWITCHING POSITION (${t.moving.length})</h3>
+      ${t.moving.map(n => `<div class="transition-item move callout-big">${esc(n)} <span class="transition-arrow">${fullPos(t.prevPos[n])} → ${fullPos(t.nextPos[n])}</span></div>`).join('')}
     </div>`;
   }
 
-  if (comingOn.length > 0) {
+  if (t.same.length > 0) {
     html += `<div class="transition-section">
-      <h3 class="on">GOING ON (${comingOn.length})</h3>
-      ${comingOn.map(n => {
-        const pos = nextPosMap[n];
-        const prevPlayer = Object.entries(prev).find(([k, v]) => k === pos);
-        const prevName = prevPlayer ? prevPlayer[1] : null;
-        let instruction = `→ ${fullPos(pos)}`;
-        if (prevName && comingOff.includes(prevName)) {
-          instruction += `, send ${esc(displayName(prevName))} off`;
-        } else if (prevName && changingPos.includes(prevName)) {
-          instruction += `, move ${esc(displayName(prevName))} to ${fullPos(nextPosMap[prevName])}`;
-        }
-        return `<div class="transition-item on callout-big">${esc(displayName(n))} <span class="transition-arrow">${instruction}</span></div>`;
-      }).join('')}
-    </div>`;
-  }
-
-  if (changingPos.length > 0) {
-    html += `<div class="transition-section">
-      <h3 class="move">SWITCHING POSITION (${changingPos.length})</h3>
-      ${changingPos.map(n => `<div class="transition-item move callout-big">${esc(displayName(n))} <span class="transition-arrow">${fullPos(prevPosMap[n])} → ${fullPos(nextPosMap[n])}</span></div>`).join('')}
-    </div>`;
-  }
-
-  if (stayingSamePos.length > 0) {
-    html += `<div class="transition-section">
-      <h3 class="stay">STAYING PUT (${stayingSamePos.length})</h3>
-      ${stayingSamePos.map(n => `<div class="transition-item stay">${esc(displayName(n))} <span class="transition-arrow">· ${prevPosMap[n].toUpperCase()}</span></div>`).join('')}
+      <h3 class="stay">STAYING PUT (${t.same.length})</h3>
+      <div class="transition-item stay">${t.same.map(n => `${esc(n)} <span class="transition-arrow">${t.prevPos[n].toUpperCase()}</span>`).join(' &nbsp;·&nbsp; ')}</div>
     </div>`;
   }
 
   if (!html) html = '<div class="no-changes">No differences between these shifts.</div>';
   box.innerHTML = html;
+
+  box.querySelectorAll('#trans-streak-banner .streak-chip').forEach(chip => chip.addEventListener('click', () => {
+    // Allowed while locked, like injury subs: this is a deliberate fix under time pressure
+    openSwapInModal(toIndex, chip.dataset.name, () => renderTransitions());
+  }));
 }
 
 // ---- MID-SHIFT (INJURY) SUBS ----
@@ -2027,50 +2591,44 @@ function openInjurySubModal() {
   const entries = Object.entries(shift);
   if (entries.length === 0) { toast(`No lineup set for ${shiftDisplayName(idx)}`); return; }
 
-  const overlay = document.getElementById('modal-overlay');
-  const title = document.getElementById('modal-title');
-  const playersList = document.getElementById('modal-players');
-  title.textContent = 'In-shift sub — who is going off?';
-  playersList.innerHTML =
-    `<div class="modal-note">Current shift: ${shiftDisplayName(idx)}${state.locked ? ' · allowed while locked' : ''}</div>` +
+  const list = openModal('In-shift sub — who is going off?',
+    `<div class="modal-note">Current shift: ${esc(shiftDisplayName(idx))}${state.locked ? ' · allowed while locked' : ''}</div>` +
     entries.sort((a, b) => a[1].localeCompare(b[1])).map(([pos, name]) =>
-      `<div class="modal-player" data-off="${esc(name)}" data-pos="${pos}">${esc(name)} <span style="color:var(--gray);font-size:12px;">(${fullPos(pos)})</span></div>`
-    ).join('');
-  overlay.classList.add('active');
+      `<div class="modal-player" data-off="${esc(name)}" data-pos="${pos}">${esc(name)} <span class="mp-meta">(${fullPos(pos)})</span></div>`
+    ).join(''));
 
-  playersList.querySelectorAll('.modal-player').forEach(el => {
+  list.querySelectorAll('.modal-player').forEach(el => {
     el.addEventListener('click', () => pickFillFor(idx, el.dataset.pos, el.dataset.off, [], { name: el.dataset.off, pos: el.dataset.pos }));
   });
 }
 
 // Ask who takes over `openPos`. The answer can be a bench player (done), an
-// on-field player sliding over (which opens HIS old spot — recurse), or
+// on-field player sliding over (which opens their old spot — recurse), or
 // "leave the spot open".
 function pickFillFor(idx, openPos, displacedName, moves, injured) {
-  const playersList = document.getElementById('modal-players');
   const shift = getShift(idx);
   const onField = new Set(Object.values(shift));
   const unavailable = new Set([injured.name, ...moves.map(m => m.player)]);
-  const bench = state.checkedIn.filter(n => !onField.has(n)).sort((a, b) => a.localeCompare(b));
+  const credit = plannedShifts();
+  const bench = state.checkedIn.filter(n => !onField.has(n)).sort((a, b) => (credit[a] - credit[b]) || a.localeCompare(b));
   const fieldOptions = Object.entries(shift)
     .filter(([p, n]) => !unavailable.has(n) && p !== openPos)
     .sort((a, b) => a[1].localeCompare(b[1]));
 
-  document.getElementById('modal-title').textContent = `Who takes ${fullPos(openPos)}?`;
   let html = `<div class="modal-note">${esc(displacedName)} is leaving ${fullPos(openPos)}</div>`;
   bench.forEach(n => {
-    html += `<div class="modal-player" data-bench="${esc(n)}">${esc(n)}</div>`;
+    html += `<div class="modal-player" data-bench="${esc(n)}">${esc(n)}<span class="mp-meta">${fmtShifts(credit[n] || 0)} shifts</span></div>`;
   });
   if (fieldOptions.length > 0) {
     html += `<div class="modal-divider">Or slide over an on-field player</div>`;
     fieldOptions.forEach(([p, n]) => {
-      html += `<div class="modal-player dimmed" data-field="${esc(n)}" data-frompos="${p}">${esc(n)} <span style="color:var(--gray);font-size:12px;">(from ${p.toUpperCase()})</span></div>`;
+      html += `<div class="modal-player dimmed" data-field="${esc(n)}" data-frompos="${p}">${esc(n)} <span class="mp-meta">(from ${p.toUpperCase()})</span></div>`;
     });
   }
   html += `<div class="modal-player full-row" data-leave-open="1" style="color:var(--gray);">Leave ${fullPos(openPos)} open</div>`;
-  playersList.innerHTML = html;
+  const list = openModal(`Who takes ${fullPos(openPos)}?`, html);
 
-  playersList.querySelectorAll('.modal-player').forEach(el => {
+  list.querySelectorAll('.modal-player').forEach(el => {
     el.addEventListener('click', () => {
       if (el.dataset.bench) {
         finalizeInjurySub(idx, injured, moves, { name: el.dataset.bench, pos: openPos });
@@ -2100,7 +2658,7 @@ function finalizeInjurySub(idx, injured, moves, entrant) {
   if (entrant) parts.push(`${entrant.name} on at ${entrant.pos.toUpperCase()}`);
   const summary = parts.length ? parts.join(', ') : 'spot left open';
 
-  saveState();
+  persist({ [`shifts.${key}`]: shift, [`midShiftSubs.${key}`]: state.midShiftSubs[key] });
   renderActiveScreen();
 
   const future = [];
@@ -2108,22 +2666,24 @@ function finalizeInjurySub(idx, injured, moves, entrant) {
     if (Object.values(getShift(i)).includes(injured.name)) future.push(i);
   }
   if (future.length > 0) {
-    askConfirm(`Remove ${injured.name} from later shifts?`,
-      `${injured.name} is still lined up in ${future.length} upcoming shift(s). Remove him and leave those spots open to refill?`,
+    askConfirm(`Remove ${esc(injured.name)} from later shifts?`,
+      `${esc(injured.name)} is still lined up in ${future.length} upcoming shift(s). Remove them and leave those spots open to refill?`,
       `Yes — remove from ${future.length} shift(s)`,
-      'No — keep him in later shifts',
+      'No — keep them in later shifts',
       () => {
+        const patch = {};
         future.forEach(i => {
           const s = state.shifts[shiftKey(i)];
           Object.keys(s).forEach(p => { if (s[p] === injured.name) delete s[p]; });
+          patch[`shifts.${shiftKey(i)}`] = s;
         });
-        saveState();
+        persist(patch);
         renderActiveScreen();
         toast(`${injured.name} off: ${summary} · removed from later shifts`);
       },
       () => toast(`${injured.name} off: ${summary}`));
   } else {
-    document.getElementById('modal-overlay').classList.remove('active');
+    closeModal();
     toast(`${injured.name} off: ${summary}`);
   }
 }
@@ -2136,30 +2696,27 @@ document.querySelectorAll('.injury-sub-trigger').forEach(btn => {
 // For when the ref started the game before the in-app timer: ask the ref how
 // much time is left in the half and set the clock to match.
 document.getElementById('timer-clock').addEventListener('click', () => {
-  const overlay = document.getElementById('modal-overlay');
-  const playersList = document.getElementById('modal-players');
-  document.getElementById('modal-title').textContent = 'Game clock';
-  let half = state.timerElapsed >= state.minutesPerHalf * 60 ? 1 : 0;
-
-  playersList.innerHTML = `
+  const e = clockElapsed();
+  let half = e >= halfLength() ? 1 : 0;
+  const leftNow = Math.max(0, halfLength() * (half + 1) - e);
+  const list = openModal('Game clock', `
     <div class="modal-note" style="display:flex;gap:8px;">
       <button class="sync-half-btn" id="sync-h1">1st Half</button>
       <button class="sync-half-btn" id="sync-h2">2nd Half</button>
     </div>
     <div class="sync-time-row">
       <div style="display:flex;align-items:center;gap:10px;">
-        <input class="sync-input" id="sync-min" type="number" inputmode="numeric" min="0" max="${state.minutesPerHalf}" value="${state.minutesPerHalf}">
+        <input class="sync-input" id="sync-min" type="number" inputmode="numeric" min="0" max="${state.minutesPerHalf}" value="${Math.floor(leftNow / 60)}">
         <span class="sync-colon">:</span>
-        <input class="sync-input" id="sync-sec" type="number" inputmode="numeric" min="0" max="59" value="0">
+        <input class="sync-input" id="sync-sec" type="number" inputmode="numeric" min="0" max="59" value="${Math.floor(leftNow % 60)}">
       </div>
-      <div class="sync-caption">Time left in the half</div>
+      <div class="sync-caption">Time left in the half (ask the ref)</div>
     </div>
     <div class="modal-player full-row" id="sync-apply" style="background:var(--orange);text-align:center;justify-content:center;align-items:center;font-weight:700;">Sync &amp; Start Clock</div>
-    <div class="modal-player full-row" id="sync-reset" style="background:transparent;color:var(--red);text-align:center;justify-content:center;align-items:center;font-size:14px;">Reset clock to 0:00</div>`;
-  overlay.classList.add('active');
+    <div class="modal-player full-row" id="sync-reset" style="background:transparent;color:var(--red);text-align:center;justify-content:center;align-items:center;font-size:14px;">Reset clock to 0:00</div>`);
 
   document.getElementById('sync-reset').addEventListener('click', () => {
-    askConfirm('Reset the game clock to 0:00?', null, 'Yes — reset', 'Cancel', () => {
+    askConfirm('Reset the game clock to 0:00?', 'Use this before a new game, not mid-game.', 'Yes — reset', 'Cancel', () => {
       resetClock();
       toast('Clock reset');
     });
@@ -2176,68 +2733,72 @@ document.getElementById('timer-clock').addEventListener('click', () => {
   document.getElementById('sync-apply').addEventListener('click', () => {
     const mins = Math.max(0, Math.min(state.minutesPerHalf, parseInt(document.getElementById('sync-min').value) || 0));
     const secs = Math.max(0, Math.min(59, parseInt(document.getElementById('sync-sec').value) || 0));
-    const left = Math.min(state.minutesPerHalf * 60, mins * 60 + secs);
-    state.timerElapsed = half * state.minutesPerHalf * 60 + (state.minutesPerHalf * 60 - left);
-    lastAlarmShift = Math.floor(state.timerElapsed / shiftDuration()); // don't replay old shift alarms
-    overlay.classList.remove('active');
-    if (!timerRunning) document.getElementById('timer-start-btn').click();
-    saveState();
-    updateTimerDisplay();
+    const left = Math.min(halfLength(), mins * 60 + secs);
+    state.clockBase = half * halfLength() + (halfLength() - left);
+    state.clockStartedAt = 0;
+    lastShiftSeen = shiftAt(state.clockBase); // don't replay old shift alarms
+    closeModal();
+    hideShiftBanner();
+    if (left > 0) startClock(); else saveClock();
+    updateClockUI();
+    renderActiveScreen();
     toast(`Clock synced — ${mins}:${secs.toString().padStart(2, '0')} left in the ${half === 0 ? '1st' : '2nd'} half`);
   });
 });
 
 // ---- PLAYING TIME ----
 function renderPlaytime() {
-  const body = document.getElementById('playtime-body');
+  const list = document.getElementById('playtime-list');
+  const summary = document.getElementById('playtime-summary');
   const minutesPerShift = state.minutesPerHalf / state.shiftsPerHalf;
-  const totalGameMinutes = state.minutesPerHalf * state.halves;
-
-  const playerShifts = {};
-  state.checkedIn.forEach(name => { playerShifts[name] = 0; });
-
-  for (let i = 0; i < totalShifts(); i++) {
-    const shift = getShift(i);
-    Object.values(shift).forEach(name => {
-      if (playerShifts[name] !== undefined) playerShifts[name]++;
-    });
-  }
-
-  // Mid-shift subs: split that shift's credit between the two players
-  const allSubs = state.midShiftSubs || {};
-  Object.keys(allSubs).forEach(k => {
-    const idx = parseInt(k.split('_')[1]);
-    if (isNaN(idx) || idx >= totalShifts()) return;
-    allSubs[k].forEach(s => {
-      if (playerShifts[s.on] !== undefined) playerShifts[s.on] -= 0.5;
-      if (playerShifts[s.off] !== undefined) playerShifts[s.off] += 0.5;
-    });
-  });
-
-  const sorted = state.checkedIn.slice().sort((a, b) => playerShifts[a] - playerShifts[b]);
+  const credit = plannedShifts();
   const maxShifts = totalShifts();
 
-  body.innerHTML = sorted.map(name => {
-    const shifts = playerShifts[name];
+  if (state.checkedIn.length === 0) {
+    list.innerHTML = `<div class="roster-empty">Nobody checked in yet.</div>`;
+    summary.textContent = '';
+    return;
+  }
+
+  const streakInfo = {};
+  state.checkedIn.forEach(name => {
+    let best = 0, endsAt = -1;
+    for (let i = 0; i < maxShifts; i++) {
+      const s = benchStreak(name, i);
+      if (s > best) { best = s; endsAt = i; }
+    }
+    streakInfo[name] = { best, endsAt };
+  });
+
+  const sorted = state.checkedIn.slice().sort((a, b) => (credit[a] - credit[b]) || a.localeCompare(b));
+  const vals = Object.values(credit);
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  summary.textContent = `· ${sorted.length} players · ${fmtShifts(lo)}–${fmtShifts(hi)} of ${maxShifts} shifts`;
+
+  list.innerHTML = sorted.map(name => {
+    const shifts = credit[name];
     const mins = Math.round(shifts * minutesPerShift);
     const pct = maxShifts > 0 ? Math.round((shifts / maxShifts) * 100) : 0;
     let barClass = '';
     if (pct < 40) barClass = 'low';
     else if (pct < 65) barClass = 'mid';
-
-    return `<tr>
-      <td style="font-weight:600;">${esc(name)}</td>
-      <td>${Number.isInteger(shifts) ? shifts : shifts.toFixed(1)} / ${maxShifts}</td>
-      <td>${mins} min</td>
-      <td>${pct}%</td>
-      <td><div class="playtime-bar-bg"><div class="playtime-bar ${barClass}" style="width:${pct}%"></div></div></td>
-    </tr>`;
+    const st = streakInfo[name];
+    const streakNote = st.best >= BENCH_STREAK_LIMIT
+      ? `<div class="playtime-streak">⚠️ Sits ${st.best} in a row (${shortShiftName(st.endsAt - st.best + 1)}–${shortShiftName(st.endsAt)})</div>` : '';
+    return `<div class="playtime-card ${st.best >= BENCH_STREAK_LIMIT ? 'streak' : ''}">
+      <div class="playtime-row">
+        <div class="playtime-name">${esc(name)}</div>
+        <div class="playtime-meta">~${mins} min · ${pct}%</div>
+        <div class="playtime-shifts">${fmtShifts(shifts)}<small> / ${maxShifts}</small></div>
+      </div>
+      <div class="playtime-bar-bg"><div class="playtime-bar ${barClass}" style="width:${pct}%"></div></div>
+      ${streakNote}
+    </div>`;
   }).join('');
 }
 
 // ---- HELPERS ----
-function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-function displayName(s) { return s; }
+function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
 const POS_FULL_NAMES = {
   gk: 'Goalkeeper', lb: 'Left Back', lcb: 'Left Center Back', rcb: 'Right Center Back',
   rb: 'Right Back', lm: 'Left Mid', cdm: 'Center Defensive Mid', rm: 'Right Mid',
@@ -2247,8 +2808,23 @@ function fullPos(id) { return POS_FULL_NAMES[id] || id.toUpperCase(); }
 
 // ---- SERVICE WORKER ----
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js');
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    // A new version installed in the background: offer a reload (the clock
+    // is shared state now, so reloading mid-game loses nothing)
+    reg.addEventListener('updatefound', () => {
+      const sw = reg.installing;
+      if (!sw) return;
+      sw.addEventListener('statechange', () => {
+        if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+          toast('New version ready — tap to reload', { sticky: true, onClick: () => location.reload() });
+        }
+      });
+    });
+  }).catch(() => {});
 }
+
+// Keep the header fresh even before the first play tap (e.g. remote start)
+ensureTicking();
 </script>
 </body>
 </html>
