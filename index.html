@@ -1022,7 +1022,7 @@ body {
     <img src="logo.png" alt="Logo" style="height:32px;width:auto;">
     <div id="timer-clock" title="Tap to sync or reset the game clock">
       <span class="timer-display" id="timer-display">0:00</span>
-      <span class="clock-sub"><span id="timer-label">Kickoff</span> <span class="clock-edit">&#9998;</span></span>
+      <span class="clock-sub" id="timer-label">Kickoff</span>
     </div>
     <span style="flex:1;"></span>
     <button class="timer-btn start" id="timer-start-btn" title="Start the game clock"><svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor"><path d="M3.5 1.8v10.4a.6.6 0 0 0 .92.5l8.16-5.2a.6.6 0 0 0 0-1L4.42 1.3a.6.6 0 0 0-.92.5z"/></svg></button>
@@ -2311,11 +2311,7 @@ function updateClockUI() {
       if (remaining <= 15) { display.classList.add('danger'); nav.classList.add('danger'); }
     }
   }
-  if (!gameStarted() || isHalftime() || isFullTime()) {
-    label.innerHTML += ' <span class="clock-edit">&#9998;</span>';
-  } else {
-    label.innerHTML += ' <span class="clock-edit">&#9998;</span>';
-  }
+  label.innerHTML += ' <span class="clock-edit">&#9998;</span>';
 
   // Play / pause button
   if (running) {
