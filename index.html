@@ -1396,10 +1396,16 @@ function enterTeam(team) {
   if (!cached) state.roster = [...team.roster];
   renderAll();
 
-  unsubscribeListener = teamDoc.onSnapshot(doc => {
+  // includeMetadataChanges so the sync dot turns green when a cached load is
+  // confirmed by the server even though the data itself didn't change
+  let lastApplied = null;
+  unsubscribeListener = teamDoc.onSnapshot({ includeMetadataChanges: true }, doc => {
     // Our own local writes echo back with hasPendingWrites=true; skip those
     if (doc.metadata.hasPendingWrites) return;
     if (doc.exists) {
+      const raw = JSON.stringify(doc.data());
+      if (raw === lastApplied) { setSyncStatus(doc.metadata.fromCache ? 'offline' : 'online'); return; }
+      lastApplied = raw;
       state = normalizeState(doc.data());
       // Re-apply edits made since the last flush so a remote snapshot never
       // wipes something the coach just tapped
