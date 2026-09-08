@@ -1,25 +1,13 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // One document per team. Only that team's coaches (by the Google account
-    // email they sign in with) can read or write it. These lists mirror the
-    // TEAMS config in index.html — update both when adding a coach.
-    function coaches(teamId) {
-      return teamId == 'river-plate' ? [
-          // TODO: boys' team coach emails (lowercase)
-        ]
-        : teamId == 'river-plate-girls' ? [
-          // TODO: girls' team coach emails (lowercase)
-        ]
-        : [];
-    }
-    function isCoach(teamId) {
-      return request.auth != null
-        && request.auth.token.email != null
-        && request.auth.token.email.lower() in coaches(teamId);
-    }
+    // One document per team, addressed by the team code. There are no
+    // accounts: knowing the code (= the document id) is what grants access.
+    // Listing the collection is denied so codes can't be discovered, and
+    // documents can't be deleted from the app.
     match /teams/{teamId} {
-      allow read, write: if isCoach(teamId);
+      allow get, create, update: if true;
+      allow list, delete: if false;
     }
   }
 }

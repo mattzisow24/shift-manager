@@ -15,7 +15,6 @@
 
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <style>
@@ -82,16 +81,25 @@ body {
   min-height: 18px;
   max-width: 360px;
 }
-.auth-noteam {
-  display: none;
-  flex-direction: column;
-  gap: 12px;
-  align-items: center;
+.auth-logos { display: flex; gap: 18px; align-items: center; }
+.auth-logos img { height: 72px; width: auto; }
+.join-input {
+  width: 100%;
   max-width: 360px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 2px solid rgba(255,255,255,0.2);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-align: center;
+  text-transform: uppercase;
+  background: rgba(255,255,255,0.1);
+  color: white;
 }
-.auth-noteam.active { display: flex; }
-.auth-noteam p { font-size: 15px; line-height: 1.4; color: var(--gray-light); }
-.auth-noteam code { font-size: 14px; color: white; }
+.join-input::placeholder { color: rgba(255,255,255,0.4); letter-spacing: 1px; font-weight: 600; }
+.join-input:focus { outline: none; border-color: var(--orange); }
+.auth-note { font-size: 13px; color: var(--gray); max-width: 320px; line-height: 1.4; }
 
 /* --- APP WRAPPER --- */
 /* Pinned to the physical screen edges: iOS standalone PWAs measure 100dvh
@@ -991,7 +999,7 @@ body {
   #modal-players { grid-template-columns: repeat(2, 1fr); gap: 7px; }
   .modal-player { padding: 8px 10px; font-size: 15px; min-height: 52px; }
 
-  .auth-logo { height: 60px; }
+  .auth-logos img { height: 56px; }
   .auth-title { font-size: 22px; }
   .auth-btn { font-size: 14px; padding: 12px; }
 }
@@ -999,27 +1007,22 @@ body {
 </head>
 <body>
 
-<!-- AUTH SCREEN -->
+<!-- JOIN SCREEN (team code) -->
 <div class="auth-screen" id="auth-screen">
-  <img src="logo.png" alt="Logo" class="auth-logo">
+  <div class="auth-logos"><img src="logo.png" alt=""><img src="logo-revolution.png" alt=""></div>
   <div class="auth-title">Shift Manager</div>
-  <div class="auth-subtitle">Sign in to manage the team</div>
+  <div class="auth-subtitle">Enter your team code to get started</div>
+  <input class="join-input" id="join-code" type="text" placeholder="Team code" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">
   <div class="auth-error" id="auth-error"></div>
-  <button class="auth-btn" id="google-signin-btn" style="display:flex;align-items:center;justify-content:center;gap:10px;max-width:360px;width:100%;">
-    <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-    Sign in with Google
-  </button>
-  <div class="auth-noteam" id="auth-noteam">
-    <p>This Google account (<code id="noteam-email"></code>) isn't on a team's coach list yet. Ask Matt to add it, or sign in with a different account.</p>
-    <button class="btn btn-ghost" id="noteam-signout">Sign out</button>
-  </div>
+  <button class="auth-btn" id="join-btn" style="max-width:360px;width:100%;">Join team</button>
+  <div class="auth-note">Ask your head coach for the code. You only enter it once — this phone remembers it.</div>
 </div>
 
-<!-- APP (hidden until logged in) -->
+<!-- APP (hidden until a team is joined) -->
 <div class="app-wrapper" id="app-wrapper">
   <!-- Top strip: the game clock, always visible -->
   <nav class="nav" id="nav">
-    <img src="logo.png" alt="Logo" style="height:32px;width:auto;">
+    <img src="logo.png" alt="Logo" id="nav-logo" style="height:32px;width:auto;">
     <div id="timer-clock" title="Tap to sync or reset the game clock">
       <span class="timer-display" id="timer-display">0:00</span>
       <span class="clock-sub" id="timer-label">Kickoff</span>
@@ -1135,32 +1138,32 @@ body {
 <script>
 // =====================================================================
 // TEAMS
-// One codebase serves every team. A coach sees the team(s) whose member
-// list contains the Google account email they sign in with. The same
-// lists are mirrored in firestore.rules — update both when adding a coach.
+// No accounts. A coach types the team code once; the code (normalized) is
+// the Firestore document id, so knowing the code is what grants access.
+// Adding a team = add a preset here and deploy.
 // =====================================================================
-const TEAMS = [
-  {
-    id: 'river-plate',              // Firestore doc id — keep, this is the existing boys' data
-    name: 'River Plate Boys',
-    members: [
-      // TODO: boys' team coach emails (lowercase), e.g. 'coach@gmail.com'
-    ],
-    defaultRoster: [
+const TEAM_PRESETS = {
+  'river-plate': {
+    name: 'River Plate',
+    code: 'RIVER PLATE',
+    logo: 'logo.png',
+    roster: [
       'John', 'Jibby', 'Justin', 'Charlie L', 'Charlie C', 'Emmet', 'Andrew', 'Angel',
       'Sam', 'Theo K', 'Theo F', 'Colby', 'Duanze', 'Eamon', 'Felipe', 'Guillermo',
       'Otto', 'Tom', 'David', 'Greyson'
     ],
   },
-  {
-    id: 'river-plate-girls',
-    name: 'River Plate Girls',
-    members: [
-      // TODO: girls' team coach emails (lowercase)
+  'revolution': {
+    name: 'Revolution',
+    code: 'REVOLUTION',
+    logo: 'logo-revolution.png',
+    roster: [
+      'Addison', 'Alli', 'Anjali', 'Brooklynn', 'Elizabeth', 'Emilie', 'Emily', 'Emma',
+      'Georgina', 'Grace', 'Harper', 'Ishani', 'Lavinia', 'Marley', 'Pippa', 'Saoirse',
+      'Sara', 'Sylvia', 'Tess'
     ],
-    defaultRoster: [],
   },
-];
+};
 
 // Alert when a player sits this many shifts in a row
 const BENCH_STREAK_LIMIT = 2;
@@ -1178,7 +1181,6 @@ firebase.initializeApp({
   appId: "1:301886559365:web:4f1ad2f29fae9877c805ec"
 });
 
-const auth = firebase.auth();
 const db = firebase.firestore();
 
 // Enable Firestore offline persistence
@@ -1186,65 +1188,64 @@ db.enablePersistence({ synchronizeTabs: true }).catch(err => {
   console.log('Firestore persistence error:', err.code);
 });
 
-// ---- AUTH ----
+// ---- DEVICE ID (no accounts: writes are tagged with a per-phone id) ----
+let deviceId = null;
+try { deviceId = localStorage.getItem('shift-manager:device'); } catch {}
+if (!deviceId) {
+  deviceId = 'phone-' + Math.random().toString(36).slice(2, 10);
+  try { localStorage.setItem('shift-manager:device', deviceId); } catch {}
+}
+
+// ---- TEAM CODES ----
 const authScreen = document.getElementById('auth-screen');
 const appWrapper = document.getElementById('app-wrapper');
 const authError = document.getElementById('auth-error');
-const googleProvider = new firebase.auth.GoogleAuthProvider();
-
-document.getElementById('google-signin-btn').addEventListener('click', async () => {
-  authError.textContent = '';
-  try {
-    await auth.signInWithPopup(googleProvider);
-  } catch (err) {
-    if (err.code === 'auth/popup-blocked') {
-      // Fallback to redirect for iPad/Safari where popups are blocked
-      await auth.signInWithRedirect(googleProvider);
-    } else if (err.code !== 'auth/popup-closed-by-user') {
-      authError.textContent = err.message;
-    }
-  }
-});
-document.getElementById('noteam-signout').addEventListener('click', () => auth.signOut());
-
-let currentUser = null;
 let currentTeam = null;
 
-function teamsFor(email) {
-  const e = (email || '').toLowerCase();
-  return TEAMS.filter(t => t.members.map(m => m.toLowerCase()).includes(e));
+function normalizeCode(s) {
+  return (s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+function teamById(id) { const p = TEAM_PRESETS[id]; return p ? { id, ...p } : null; }
+function joinedTeamIds() {
+  try { return (JSON.parse(localStorage.getItem('shift-manager:joined')) || []).filter(id => TEAM_PRESETS[id]); } catch { return []; }
+}
+function rememberJoined(id) {
+  const ids = joinedTeamIds().filter(x => x !== id); ids.push(id);
+  try { localStorage.setItem('shift-manager:joined', JSON.stringify(ids)); } catch {}
+}
+function forgetJoined(id) {
+  try { localStorage.setItem('shift-manager:joined', JSON.stringify(joinedTeamIds().filter(x => x !== id))); } catch {}
 }
 
-auth.onAuthStateChanged(user => {
-  const noTeam = document.getElementById('auth-noteam');
-  const signinBtn = document.getElementById('google-signin-btn');
-  if (user) {
-    currentUser = user;
-    const mine = teamsFor(user.email);
-    if (mine.length === 0) {
-      leaveTeam();
-      document.getElementById('noteam-email').textContent = user.email || '(no email)';
-      noTeam.classList.add('active');
-      signinBtn.style.display = 'none';
-      authScreen.classList.remove('hidden');
-      appWrapper.classList.remove('active');
-      return;
-    }
-    noTeam.classList.remove('active');
-    signinBtn.style.display = 'flex';
-    authScreen.classList.add('hidden');
-    appWrapper.classList.add('active');
-    const remembered = localStorage.getItem('shift-manager:last-team');
-    enterTeam(mine.find(t => t.id === remembered) || mine[0]);
-  } else {
-    currentUser = null;
-    leaveTeam();
-    noTeam.classList.remove('active');
-    signinBtn.style.display = 'flex';
-    authScreen.classList.remove('hidden');
-    appWrapper.classList.remove('active');
-  }
+function showJoinScreen(msg) {
+  leaveTeam();
+  authError.textContent = msg || '';
+  authScreen.classList.remove('hidden');
+  appWrapper.classList.remove('active');
+}
+
+function joinTeam(id) {
+  const team = teamById(id);
+  if (!team) return false;
+  rememberJoined(id);
+  authError.textContent = '';
+  authScreen.classList.add('hidden');
+  appWrapper.classList.add('active');
+  enterTeam(team);
+  return true;
+}
+
+document.getElementById('join-btn').addEventListener('click', () => {
+  const input = document.getElementById('join-code');
+  const id = normalizeCode(input.value);
+  if (!id) { authError.textContent = 'Type the team code first'; return; }
+  if (!joinTeam(id)) { authError.textContent = 'No team with that code — check with your head coach'; return; }
+  input.value = '';
+  input.blur();
+  showScreen('shifts');
+  toast(`Welcome to ${TEAM_PRESETS[id].name}`);
 });
+document.getElementById('join-code').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('join-btn').click(); });
 
 // ---- SYNC STATUS ----
 function setSyncStatus(status) {
@@ -1328,18 +1329,18 @@ function persist(patch, opts = {}) {
 function flushPatch() {
   clearTimeout(flushTimer);
   flushTimer = null;
-  if (!currentUser || !teamDoc) return;
+  if (!teamDoc) return;
   const patch = pendingPatch;
   pendingPatch = {};
   if (Object.keys(patch).length === 0) return;
   setSyncStatus('syncing');
   teamDoc.update({
     ...patch,
-    updatedBy: currentUser.email || currentUser.uid,
+    updatedBy: deviceId,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
   }).then(() => setSyncStatus('online')).catch(err => {
     if (err && err.code === 'not-found') {
-      teamDoc.set({ ...docFromState(), updatedBy: currentUser.email || currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
+      teamDoc.set({ ...docFromState(), updatedBy: deviceId, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
         .then(() => setSyncStatus('online')).catch(() => setSyncStatus('offline'));
     } else {
       console.log('Firestore write error:', err);
@@ -1377,7 +1378,8 @@ function enterTeam(team) {
   leaveTeam();
   currentTeam = team;
   teamDoc = db.collection('teams').doc(team.id);
-  localStorage.setItem('shift-manager:last-team', team.id);
+  try { localStorage.setItem('shift-manager:last-team', team.id); } catch {}
+  document.getElementById('nav-logo').src = team.logo;
   currentShiftIndex = parseInt(localStorage.getItem(localKey('shift'))) || 0;
   state = defaultState();
 
@@ -1404,8 +1406,8 @@ function enterTeam(team) {
     } else {
       // First time this team is opened — create the shared doc
       state = defaultState();
-      state.roster = [...team.defaultRoster];
-      teamDoc.set({ ...docFromState(), updatedBy: currentUser.email || currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
+      state.roster = [...team.roster];
+      teamDoc.set({ ...docFromState(), updatedBy: deviceId, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
         .then(() => setSyncStatus('online')).catch(() => setSyncStatus('offline'));
       renderAll();
       if (state.roster.length === 0) showScreen('roster');
@@ -1413,7 +1415,7 @@ function enterTeam(team) {
   }, err => {
     console.log('Firestore listener error:', err);
     setSyncStatus('offline');
-    if (err && err.code === 'permission-denied') toast('No access to this team — check the coach list');
+    if (err && err.code === 'permission-denied') toast('Could not open the team — try again with a connection');
   });
 }
 
@@ -1511,25 +1513,31 @@ document.querySelectorAll('.nav-btn[data-screen]').forEach(btn => {
   btn.addEventListener('click', () => showScreen(btn.dataset.screen));
 });
 
-// ⋯ menu: the pre-game screens, team switch, sign out
+// ⋯ menu: the pre-game screens, team switch, leave team
 document.getElementById('more-btn').addEventListener('click', () => {
-  const mine = currentUser ? teamsFor(currentUser.email) : [];
+  const others = joinedTeamIds().filter(id => !currentTeam || id !== currentTeam.id);
   const list = openModal(currentTeam ? currentTeam.name : 'Menu', `
     <div class="modal-player full-row" data-goto="roster">Roster &amp; check-in</div>
     <div class="modal-player full-row" data-goto="playtime">Play Time</div>
-    ${mine.length > 1 ? `<div class="modal-divider">Switch team</div>` +
-      mine.filter(t => t.id !== currentTeam.id).map(t => `<div class="modal-player full-row" data-team="${esc(t.id)}">${esc(t.name)}</div>`).join('') : ''}
-    <div class="modal-divider">Account</div>
-    <div class="modal-note">${esc(currentUser && currentUser.email || '')}</div>
-    <div class="modal-player full-row dimmed" id="menu-signout">Sign out</div>`);
+    <div class="modal-divider">Team</div>
+    <div class="modal-note">Team code: <b style="color:white;letter-spacing:1px;">${esc(currentTeam ? currentTeam.code : '')}</b> — share it with new coaches</div>
+    ${others.map(id => `<div class="modal-player full-row" data-team="${esc(id)}">Switch to ${esc(TEAM_PRESETS[id].name)}</div>`).join('')}
+    <div class="modal-player full-row dimmed" id="menu-join">Join another team…</div>
+    <div class="modal-player full-row dimmed" id="menu-leave">Leave this team on this phone</div>`);
   list.querySelectorAll('[data-goto]').forEach(el => el.addEventListener('click', () => { closeModal(); showScreen(el.dataset.goto); }));
   list.querySelectorAll('[data-team]').forEach(el => el.addEventListener('click', () => {
     closeModal();
-    const t = TEAMS.find(x => x.id === el.dataset.team);
-    if (t) { enterTeam(t); showScreen('shifts'); toast(`Switched to ${t.name}`); }
+    if (joinTeam(el.dataset.team)) { showScreen('shifts'); toast(`Switched to ${TEAM_PRESETS[el.dataset.team].name}`); }
   }));
-  document.getElementById('menu-signout').addEventListener('click', () => {
-    askConfirm('Sign out?', 'You will need to sign in with Google again to get back in.', 'Yes — sign out', 'Cancel', () => auth.signOut());
+  document.getElementById('menu-join').addEventListener('click', () => { closeModal(); showJoinScreen(); });
+  document.getElementById('menu-leave').addEventListener('click', () => {
+    const t = currentTeam;
+    askConfirm(`Leave ${t.name} on this phone?`, 'The team data stays safe in the cloud. You can rejoin any time with the team code.', 'Yes — leave', 'Cancel', () => {
+      forgetJoined(t.id);
+      try { localStorage.removeItem('shift-manager:last-team'); } catch {}
+      showJoinScreen();
+      toast(`Left ${t.name} on this phone`);
+    });
   });
 });
 
@@ -2821,6 +2829,15 @@ if ('serviceWorker' in navigator) {
 
 // Keep the header fresh even before the first play tap (e.g. remote start)
 ensureTicking();
+
+// Boot: reopen the last team used on this phone, otherwise ask for a code
+(function boot() {
+  let last = null;
+  try { last = localStorage.getItem('shift-manager:last-team'); } catch {}
+  const ids = joinedTeamIds();
+  const id = (last && ids.includes(last)) ? last : ids[ids.length - 1];
+  if (id) joinTeam(id); else showJoinScreen();
+})();
 </script>
 </body>
 </html>
