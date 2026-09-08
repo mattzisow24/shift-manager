@@ -1385,11 +1385,15 @@ function enterTeam(team) {
   currentShiftIndex = parseInt(localStorage.getItem(localKey('shift'))) || 0;
   state = defaultState();
 
-  // Load from localStorage first for instant display
+  // Load from localStorage first for instant display. With no cache yet,
+  // seed the preset roster so any write that races the first snapshot
+  // (e.g. tapping play right after joining) carries a complete document.
+  let cached = false;
   try {
     const local = JSON.parse(localStorage.getItem(localKey('state')));
-    if (local && local.roster) state = normalizeState(local);
+    if (local && local.roster) { state = normalizeState(local); cached = true; }
   } catch {}
+  if (!cached) state.roster = [...team.roster];
   renderAll();
 
   unsubscribeListener = teamDoc.onSnapshot(doc => {
@@ -1406,9 +1410,13 @@ function enterTeam(team) {
       // A brand-new team has no players yet: start on the roster screen
       if (state.roster.length === 0 && !document.getElementById('roster-screen').classList.contains('active')) showScreen('roster');
     } else {
-      // First time this team is opened — create the shared doc
-      state = defaultState();
-      state.roster = [...team.roster];
+      // Only trust "doesn't exist" from the server: an offline phone's cache
+      // also says "no document", and creating one from that would overwrite
+      // the real team data once it reconnects.
+      if (doc.metadata.fromCache) { setSyncStatus('offline'); return; }
+      // First time this team is opened — create the shared doc from the
+      // current local state (preset roster, plus anything tapped so far)
+      if (state.roster.length === 0) state.roster = [...team.roster];
       teamDoc.set({ ...docFromState(), updatedBy: deviceId, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
         .then(() => setSyncStatus('online')).catch(() => setSyncStatus('offline'));
       renderAll();
