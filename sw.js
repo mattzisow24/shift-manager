@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shift-manager-v27';
+const CACHE_NAME = 'shift-manager-v28';
 const ASSETS = [
   '/',
   '/index.html',
@@ -6,6 +6,7 @@ const ASSETS = [
   '/logo.png',
   '/logo-revolution.png',
   '/bays.png',
+  '/favicon.png',
   '/icon-192.png',
   '/icon-512.png',
   'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js',
