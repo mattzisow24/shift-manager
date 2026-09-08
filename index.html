@@ -264,15 +264,14 @@ body {
 .step-ctl:disabled { opacity: 0.3; }
 .step-value { min-width: 44px; text-align: center; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .setup-box .setup-note { font-size: 12px; color: var(--gray); width: 100%; }
+.team-box { flex-shrink: 0; }
 
 .roster-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  grid-auto-rows: minmax(48px, 1fr);
+  grid-auto-rows: minmax(48px, auto);
   gap: 6px;
-  flex: 1;
-  overflow-y: auto;
-  align-content: stretch;
+  flex-shrink: 0;
 }
 .roster-empty {
   padding: 24px;
@@ -1081,6 +1080,13 @@ body {
       <button class="btn btn-sm btn-gold" id="check-all-btn">Check All In</button>
     </div>
     <div class="roster-list" id="roster-list"></div>
+    <div class="setup-box team-box">
+      <div class="setup-title">Team</div>
+      <div class="setup-field">
+        <span class="setup-label">Code: <b id="team-code-display" style="color:white;letter-spacing:1px;font-family:ui-monospace,Menlo,monospace;"></b> <span style="font-weight:400;color:var(--gray);">· share with new coaches</span></span>
+        <button class="btn btn-sm btn-ghost" id="switch-team-btn">Switch team…</button>
+      </div>
+    </div>
   </div>
 
   <!-- SHIFTS -->
@@ -1131,9 +1137,9 @@ body {
     <button class="nav-btn active" data-screen="shifts">Shifts<span class="nav-dot"></span></button>
     <button class="nav-btn" data-screen="transitions">Call Subs<span class="nav-dot"></span></button>
     <button class="nav-btn injury-sub-trigger" style="color:#ff9d9d;">In-Shift Sub</button>
-    <button class="nav-btn pregame-tab" data-screen="roster">Roster</button>
+    <button class="nav-btn pregame-tab" data-screen="roster">Game Setup</button>
     <button class="nav-btn pregame-tab" data-screen="playtime">Play Time</button>
-    <button class="nav-btn" id="more-btn" style="flex:0 0 56px;font-size:22px;line-height:1;" title="Roster, Play Time, team">&#8943;</button>
+    <button class="nav-btn" id="more-btn" style="flex:0 0 56px;font-size:22px;line-height:1;" title="Game Setup, Play Time, team">&#8943;</button>
   </nav>
 </div>
 
@@ -1550,7 +1556,7 @@ document.querySelectorAll('.nav-btn[data-screen]').forEach(btn => {
 // ⋯ menu: the pre-game screens, team switch, leave team
 document.getElementById('more-btn').addEventListener('click', () => {
   const list = openModal(currentTeam ? currentTeam.name : 'Menu', `
-    <div class="modal-player full-row" data-goto="roster">Roster &amp; check-in</div>
+    <div class="modal-player full-row" data-goto="roster">Game Setup</div>
     <div class="modal-player full-row" data-goto="playtime">Play Time</div>
     <div class="modal-divider">Team</div>
     <div class="modal-note">Team code: <b style="color:white;letter-spacing:1px;">${esc(currentTeam ? currentTeam.code : '')}</b> — share it with new coaches</div>
@@ -1558,15 +1564,19 @@ document.getElementById('more-btn').addEventListener('click', () => {
   list.querySelectorAll('[data-goto]').forEach(el => el.addEventListener('click', () => { closeModal(); showScreen(el.dataset.goto); }));
   // Switching always goes through the code screen, so nobody lands on the
   // other team by accident. The team's data stays in the cloud.
-  document.getElementById('menu-switch').addEventListener('click', () => {
-    const t = currentTeam;
-    askConfirm('Switch team?', `This phone will forget ${esc(t.name)} — you'll enter a team code to continue.`, 'Yes — switch', 'Cancel', () => {
-      forgetJoined(t.id);
-      try { localStorage.removeItem('shift-manager:last-team'); } catch {}
-      showJoinScreen();
-    });
-  });
+  document.getElementById('menu-switch').addEventListener('click', () => { closeModal(); confirmSwitchTeam(); });
 });
+
+function confirmSwitchTeam() {
+  const t = currentTeam;
+  if (!t) { showJoinScreen(); return; }
+  askConfirm('Switch team?', `This phone will forget ${esc(t.name)} — you'll enter a team code to continue.`, 'Yes — switch', 'Cancel', () => {
+    forgetJoined(t.id);
+    try { localStorage.removeItem('shift-manager:last-team'); } catch {}
+    showJoinScreen();
+  });
+}
+document.getElementById('switch-team-btn').addEventListener('click', confirmSwitchTeam);
 
 // ---- SHIFT / PLAY HELPERS ----
 function totalShifts() { return state.halves * state.shiftsPerHalf; }
@@ -1648,6 +1658,7 @@ function renderRoster() {
   const list = document.getElementById('roster-list');
   const count = document.getElementById('roster-count');
   document.getElementById('roster-team-name').textContent = currentTeam ? currentTeam.name : 'Team Roster';
+  document.getElementById('team-code-display').textContent = currentTeam ? currentTeam.code : '';
   count.textContent = `${state.roster.length} players · ${state.checkedIn.length} checked in`;
 
   // Game setup controls
@@ -2090,7 +2101,7 @@ function renderBench() {
     : `Bench (${bench.length})${state.checkedIn.length === 0 ? '' : ' · number = planned shifts'}`;
 
   if (state.checkedIn.length === 0) {
-    benchList.innerHTML = `<div class="bench-empty">No one checked in — use Roster (⋯) first</div>`;
+    benchList.innerHTML = `<div class="bench-empty">No one checked in — check players in on Game Setup (⋯) first</div>`;
     return;
   }
   if (bench.length === 0) {
