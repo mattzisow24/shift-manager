@@ -33,6 +33,7 @@
   --gray: #adb5bd;
   --gray-dark: #6c757d;
   --red: #e63946;
+  --violet: #6d4aff;
   --green: #2ecc71;
 }
 
@@ -908,6 +909,19 @@ body {
   white-space: nowrap;
 }
 
+/* --- FATIGUE CUE (advisory: played 3+ outfield shifts in a row this half) --- */
+.field-slot .player-badge.filled.tired { border-color: var(--violet); }
+.fatigue-note {
+  font-size: 9px;
+  font-weight: 700;
+  color: white;
+  background: #4a2fc4;
+  padding: 1px 5px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.playtime-fatigue { font-size: 12px; color: #b9a5ff; font-weight: 600; }
+
 /* --- SYNC STATUS --- */
 .sync-dot {
   width: 8px; height: 8px;
@@ -1191,6 +1205,7 @@ const TEAM_PRESETS = {
 
 // Alert when a player sits this many shifts in a row
 const BENCH_STREAK_LIMIT = 2;
+const PLAY_STREAK_LIMIT = 2; // more than this many shifts in a row = fatigue cue
 // After a shift boundary, Call Subs keeps showing the transition that just
 // happened for this long (seconds) instead of jumping to the next one
 const SUB_GRACE_SECONDS = 90;
@@ -1622,6 +1637,24 @@ function unresolvedMustPlay(i) {
   const lineup = new Set(Object.values(getShift(i)));
   return mustPlay(i).filter(n => !lineup.has(n));
 }
+
+// Consecutive full outfield shifts ending at i (inclusive) that `name` played
+// without a rest. Advisory fatigue cue only — read-only, never an alert.
+// Halftime is a rest, so the count never crosses a half. A shift in goal or
+// going off as an in-shift sub is a rest too; coming on mid-shift starts a
+// new run.
+function playStreak(name, i) {
+  let n = 0;
+  for (let k = i; k >= 0 && halfOf(k) === halfOf(i); k--) {
+    const shift = getShift(k);
+    const pos = Object.keys(shift).find(p => shift[p] === name);
+    if (!pos || pos === 'gk') break;
+    n++;
+    const subs = (state.midShiftSubs || {})[shiftKey(k)] || [];
+    if (subs.some(s => s.on === name)) break;
+  }
+  return n;
+}
 function satLastShift(name, i) { return i >= 1 && !shiftIsEmpty(i - 1) && benchStreak(name, i - 1) >= 1; }
 
 // Planned shift credit per checked-in player (in-shift subs split a shift 0.5/0.5)
@@ -1938,10 +1971,13 @@ function renderField() {
     const filledClass = player ? 'filled' : '';
     const sub = subByPos[pos.id];
     const subNote = (sub && player === sub.on) ? `<span class="sub-note">in for ${esc(sub.off)}</span>` : '';
+    const run = player ? playStreak(player, currentShiftIndex) : 0;
+    const tired = run > PLAY_STREAK_LIMIT;
+    const fatigueNote = tired ? `<span class="fatigue-note">\u{1FAAB} ${run} in a row</span>` : '';
     return `<div class="field-slot" style="left:${pos.x}%;top:${pos.y}%;" data-pos="${pos.id}">
       <span class="pos-label">${pos.label}</span>
-      <span class="player-badge ${filledClass}">${player ? esc(player) : '—'}</span>
-      ${subNote}
+      <span class="player-badge ${filledClass} ${tired ? 'tired' : ''}">${player ? esc(player) : '—'}</span>
+      ${subNote}${fatigueNote}
     </div>`;
   }).join('');
 
@@ -2824,6 +2860,17 @@ function renderPlaytime() {
     streakInfo[name] = { best, endsAt };
   });
 
+  // Fatigue cue: each run of more than PLAY_STREAK_LIMIT shifts without a rest
+  const fatigueRuns = {};
+  state.checkedIn.forEach(name => {
+    fatigueRuns[name] = [];
+    for (let i = 0; i < maxShifts; i++) {
+      const run = playStreak(name, i);
+      const runContinues = i + 1 < maxShifts && playStreak(name, i + 1) === run + 1;
+      if (run > PLAY_STREAK_LIMIT && !runContinues) fatigueRuns[name].push({ run, endsAt: i });
+    }
+  });
+
   const sorted = state.checkedIn.slice().sort((a, b) => (credit[a] - credit[b]) || a.localeCompare(b));
   const vals = Object.values(credit);
   const lo = Math.min(...vals), hi = Math.max(...vals);
@@ -2840,6 +2887,8 @@ function renderPlaytime() {
     const flagged = st.best > BENCH_STREAK_LIMIT;
     const streakNote = flagged
       ? `<div class="playtime-streak">⚠️ Sits ${st.best} in a row (${shortShiftName(st.endsAt - st.best + 1)}–${shortShiftName(st.endsAt)})</div>` : '';
+    const fatigueNote = fatigueRuns[name].map(r =>
+      `<div class="playtime-fatigue">\u{1FAAB} Plays ${r.run} in a row (${shortShiftName(r.endsAt - r.run + 1)}–${shortShiftName(r.endsAt)})</div>`).join('');
     return `<div class="playtime-card ${flagged ? 'streak' : ''}">
       <div class="playtime-row">
         <div class="playtime-name">${esc(name)}</div>
@@ -2847,7 +2896,7 @@ function renderPlaytime() {
         <div class="playtime-shifts">${fmtShifts(shifts)}<small> / ${maxShifts}</small></div>
       </div>
       <div class="playtime-bar-bg"><div class="playtime-bar ${barClass}" style="width:${pct}%"></div></div>
-      ${streakNote}
+      ${streakNote}${fatigueNote}
     </div>`;
   }).join('');
 }
