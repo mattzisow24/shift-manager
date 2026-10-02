@@ -1132,7 +1132,7 @@ body {
       <div class="field-container">
         <div class="field" id="field"></div>
         <div class="formation-edit-bar" id="formation-edit-bar">
-          <span>✋ Drag spots to reshape · <b id="formation-edit-name"></b></span>
+          <span>✋ Drag spots · <b id="formation-edit-name"></b> · <span id="formation-edit-scope"></span></span>
           <button class="btn btn-sm btn-ghost" id="formation-reset-btn">Reset</button>
           <button class="btn btn-sm btn-primary" id="formation-done-btn">Done</button>
         </div>
@@ -1388,16 +1388,26 @@ function slotLabels(slots) {
   return labels;
 }
 
-// The current formation's spots, with labels
-function positions() {
-  const labels = slotLabels(state.formation);
-  return state.formation.map(s => ({ ...s, label: labels[s.id] || s.id.toUpperCase() }));
+// Each shift can have its own formation: state.shiftFormations[shift_i]
+// overrides the game-wide state.formation. Coaches can change shape at any
+// point, including mid-shift and while shifts are locked, since moving
+// spots never changes who is playing.
+function formationFor(i) {
+  const own = (state.shiftFormations || {})[shiftKey(i)];
+  return Array.isArray(own) && own.length === 11 ? own : state.formation;
 }
-function posLabel(id) { return slotLabels(state.formation)[id] || id.toUpperCase(); }
+
+// Shift i's spots, with labels (the in-progress copy while dragging spots)
+function positions(i) {
+  const slots = (formationEditing && i === currentShiftIndex && editSlots) ? editSlots : formationFor(i);
+  const labels = slotLabels(slots);
+  return slots.map(s => ({ ...s, label: labels[s.id] || s.id.toUpperCase() }));
+}
+function posLabel(id, i) { return slotLabels(formationFor(i))[id] || id.toUpperCase(); }
 
 // "4-4-2" for a preset; for a custom shape, count lines from the back
 // (spots within 10% of each other's height are one line)
-function formationName(slots = state.formation) {
+function formationName(slots) {
   const preset = matchingPreset(slots);
   if (preset) return preset.name;
   const ys = slots.filter(s => s.id !== 'gk').map(s => s.y).sort((a, b) => b - a);
@@ -1405,24 +1415,30 @@ function formationName(slots = state.formation) {
   ys.forEach((y, k) => { if (k === 0 || ys[k - 1] - y > 10) lines.push(1); else lines[lines.length - 1]++; });
   return lines.join('-');
 }
-function matchingPreset(slots = state.formation) {
+function matchingPreset(slots) {
   return FORMATION_PRESETS.find(p => p.slots.length === slots.length &&
     p.slots.every(ps => slots.some(s => s.id === ps.id && s.x === ps.x && s.y === ps.y))) || null;
 }
+function sameFormation(a, b) {
+  return a.length === b.length && a.every(s => b.some(t => t.id === s.id && t.x === s.x && t.y === s.y));
+}
+// Any shift whose shape differs from the game-wide one
+function formationVaries() {
+  for (let i = 0; i < totalShifts(); i++) if (!sameFormation(formationFor(i), state.formation)) return true;
+  return false;
+}
 
-// Switch to new spots, carrying every lineup across: a spot keeps its
-// player if the new formation has the same id, otherwise players go to the
-// nearest free new spot.
-function applyFormation(newSlots) {
-  const oldSlots = state.formation;
+// Old spot id -> new spot id. Same id keeps its player; the rest go to the
+// nearest new spot: greedy pairs, then swap any two pairs while that
+// shortens the total distance (so a winger doesn't end up at CAM when a
+// striker could).
+function formationMap(oldSlots, newSlots) {
   const map = {};
   const freeOld = oldSlots.filter(o => {
     if (newSlots.some(n => n.id === o.id)) { map[o.id] = o.id; return false; }
     return true;
   });
   const freeNew = newSlots.filter(n => !oldSlots.some(o => o.id === n.id));
-  // Greedy nearest pairs, then swap any two pairs while that shortens the
-  // total distance (so a winger doesn't end up at CAM when a striker could)
   const dist = (o, n) => Math.hypot(o.x - n.x, o.y - n.y);
   const pairs = [];
   while (freeOld.length && freeNew.length) {
@@ -1443,63 +1459,129 @@ function applyFormation(newSlots) {
     }
   }
   pairs.forEach(([o, n]) => { map[o.id] = n.id; });
-  Object.keys(state.shifts).forEach(k => {
-    const moved = {};
-    Object.entries(state.shifts[k]).forEach(([pos, name]) => { if (map[pos]) moved[map[pos]] = name; });
-    state.shifts[k] = moved;
-  });
-  Object.values(state.midShiftSubs || {}).forEach(list => list.forEach(s => { if (map[s.pos]) s.pos = map[s.pos]; }));
-  state.formation = newSlots.map(s => ({ ...s }));
-  persist({ formation: state.formation, shifts: state.shifts, midShiftSubs: state.midShiftSubs || {} });
+  return map;
 }
 
-// Formation picker (Shifts tab + Game Setup)
-let formationEditing = false;
-function openFormationModal() {
-  if (editLocked()) return;
-  const current = matchingPreset();
-  let html = `<div class="modal-note">Current: <b style="color:white;">${esc(formationName())}</b>${current ? '' : ' (custom)'} · players carry over to the nearest spot</div>`;
-  html += FORMATION_PRESETS.map(p =>
-    `<div class="modal-player ${current && current.key === p.key ? 'current' : ''}" data-preset="${p.key}" style="align-items:center;text-align:center;font-size:18px;font-weight:700;">${p.name}</div>`).join('');
-  html += `<div class="modal-player full-row" id="formation-custom" style="background:rgba(232,101,26,0.18);border:1px solid var(--orange);">✋ Drag spots to make your own<span class="mp-meta">Move any player spot on the field — e.g. push a mid up or drop one deep</span></div>`;
-  const list = openModal('Formation', html);
-  list.querySelectorAll('[data-preset]').forEach(el => el.addEventListener('click', () => {
-    applyFormation(presetSlots(el.dataset.preset));
-    closeModal();
-    renderAll();
-    toast(`Formation: ${formationName()}`);
-  }));
-  document.getElementById('formation-custom').addEventListener('click', () => {
-    closeModal();
-    startFormationEdit();
+// Give shifts new spots, carrying their lineups and in-shift subs across.
+// scope: 'game' (every shift, becomes the default), 'onward' (shift `from`
+// to the end), 'shift' (shift `from` only). Returns how many players on
+// shift `from` changed position label.
+function setFormation(scope, from, newSlots) {
+  const total = totalShifts();
+  const whole = scope === 'game' || (scope === 'onward' && from === 0);
+  const targets = [];
+  for (let i = 0; i < total; i++) if (whole || i === from || (scope === 'onward' && i > from)) targets.push(i);
+  const patch = {};
+  let moved = 0;
+  if (!state.shiftFormations) state.shiftFormations = {};
+  targets.forEach(i => {
+    const key = shiftKey(i);
+    const oldSlots = formationFor(i);
+    const map = formationMap(oldSlots, newSlots);
+    if (state.shifts[key]) {
+      const oldLabels = slotLabels(oldSlots), newLabels = slotLabels(newSlots);
+      const next = {};
+      Object.entries(state.shifts[key]).forEach(([pos, name]) => {
+        if (!map[pos]) return;
+        next[map[pos]] = name;
+        if (i === from && oldLabels[pos] !== newLabels[map[pos]]) moved++;
+      });
+      state.shifts[key] = next;
+      patch[`shifts.${key}`] = next;
+    }
+    const subs = (state.midShiftSubs || {})[key];
+    if (subs && subs.length) {
+      subs.forEach(s => { if (map[s.pos]) s.pos = map[s.pos]; });
+      patch[`midShiftSubs.${key}`] = subs;
+    }
+    if (!whole) {
+      state.shiftFormations[key] = newSlots.map(s => ({ ...s }));
+      patch[`shiftFormations.${key}`] = state.shiftFormations[key];
+    }
   });
+  if (whole) {
+    state.formation = newSlots.map(s => ({ ...s }));
+    state.shiftFormations = {};
+    patch.formation = state.formation;
+    patch.shiftFormations = {};
+  }
+  persist(patch);
+  return moved;
+}
+
+// ---- Formation picker (Shifts tab: this shift; Game Setup: whole game) ----
+let formationEditing = false;
+let editSlots = null;          // working copy while dragging spots
+let formationScope = 'onward';
+let formationFrom = 0;
+const SCOPE_LABELS = { onward: 'This shift on', shift: 'Only this shift', game: 'Whole game' };
+
+function openFormationModal(opts = {}) {
+  const fromSetup = !!opts.fromSetup;
+  formationFrom = fromSetup ? 0 : currentShiftIndex;
+  formationScope = fromSetup ? 'game' : 'onward';
+  const slots = fromSetup ? state.formation : formationFor(formationFrom);
+  const live = liveShiftIndex() === formationFrom && clockRunning();
+  const paint = () => {
+    const current = matchingPreset(slots);
+    const scopeNote = formationScope === 'game' ? 'Every shift in the game'
+      : formationScope === 'shift' ? `${shiftDisplayName(formationFrom)} only — later shifts keep their shape`
+      : `${shiftDisplayName(formationFrom)} through the end of the game`;
+    let html = `<div class="modal-note">Now: <b style="color:white;">${esc(formationName(slots))}</b>${current ? '' : ' (custom)'}` +
+      `${live ? ' · <b style="color:var(--green);">live shift — changes right away</b>' : ''}${state.locked ? ' · allowed while locked' : ''}</div>`;
+    html += `<div class="modal-note" style="display:flex;flex-direction:column;gap:6px;">
+      <div class="segmented scope-seg">${(fromSetup ? ['game'] : ['onward', 'shift', 'game']).map(k =>
+        `<button class="seg-btn ${formationScope === k ? 'active' : ''}" data-scope="${k}">${SCOPE_LABELS[k]}</button>`).join('')}</div>
+      <span>Applies to: ${scopeNote}. Players carry over to the nearest spot.</span></div>`;
+    html += FORMATION_PRESETS.map(p =>
+      `<div class="modal-player ${current && current.key === p.key ? 'current' : ''}" data-preset="${p.key}" style="align-items:center;text-align:center;font-size:18px;font-weight:700;">${p.name}</div>`).join('');
+    html += `<div class="modal-player full-row" id="formation-custom" style="background:rgba(232,101,26,0.18);border:1px solid var(--orange);">✋ Drag spots to make your own<span class="mp-meta">Move any player spot on the field — e.g. push a mid up or drop one deep</span></div>`;
+    const list = openModal(fromSetup ? 'Formation — whole game' : `Formation — ${shortShiftName(formationFrom)}`, html);
+    list.querySelectorAll('[data-scope]').forEach(b => b.addEventListener('click', () => { formationScope = b.dataset.scope; paint(); }));
+    list.querySelectorAll('[data-preset]').forEach(el => el.addEventListener('click', () => {
+      const moved = setFormation(formationScope, formationFrom, presetSlots(el.dataset.preset));
+      closeModal();
+      renderAll();
+      const name = formationName(presetSlots(el.dataset.preset));
+      toast(`${name} · ${SCOPE_LABELS[formationScope].toLowerCase()}` + (moved && !fromSetup ? ` · ${moved} player${moved > 1 ? 's' : ''} change position` : ''), { ms: 3200 });
+    }));
+    document.getElementById('formation-custom').addEventListener('click', () => {
+      closeModal();
+      startFormationEdit();
+    });
+  };
+  paint();
 }
 function startFormationEdit() {
-  if (editLocked()) return;
+  if (formationScope === 'game') formationFrom = currentShiftIndex;
+  editSlots = formationFor(currentShiftIndex).map(s => ({ ...s }));
   formationEditing = true;
   clearBenchSelection(false);
   showScreen('shifts');
 }
-function stopFormationEdit() {
+function stopFormationEdit(silent) {
+  if (!formationEditing) return;
+  const name = formationName(editSlots);
   formationEditing = false;
+  editSlots = null;
   renderShifts();
   renderRoster();
-  toast(`Formation saved: ${formationName()}`);
+  if (!silent) toast(`Formation saved: ${name}`);
 }
 
-// Edit mode: drag a spot to move it (the goalkeeper stays in goal)
+// Edit mode: drag a spot to move it (the goalkeeper stays in goal). Each
+// drop is saved to the chosen scope straight away.
 function attachFormationDrag(field) {
   field.querySelectorAll('.field-slot').forEach(slot => {
     const id = slot.dataset.pos;
     if (id === 'gk') return;
     slot.addEventListener('pointerdown', e => {
-      if (state.locked) { editLocked(); return; }
       e.preventDefault();
       const rect = field.getBoundingClientRect();
       try { slot.setPointerCapture(e.pointerId); } catch {}
       slot.classList.add('moving');
       const move = ev => {
-        const spot = state.formation.find(s => s.id === id);
+        const spot = editSlots && editSlots.find(s => s.id === id);
         if (!spot) return;
         spot.x = Math.round(Math.max(6, Math.min(94, ((ev.clientX - rect.left) / rect.width) * 100)));
         spot.y = Math.round(Math.max(8, Math.min(82, ((ev.clientY - rect.top) / rect.height) * 100)));
@@ -1512,7 +1594,7 @@ function attachFormationDrag(field) {
         slot.removeEventListener('pointerup', up);
         slot.removeEventListener('pointercancel', up);
         slot.classList.remove('moving');
-        saveFields('formation');
+        if (editSlots) setFormation(formationScope, formationFrom, editSlots);
         renderShifts();
       };
       slot.addEventListener('pointermove', move);
@@ -1522,10 +1604,10 @@ function attachFormationDrag(field) {
   });
 }
 function refreshFormationLabels(field) {
-  const labels = slotLabels(state.formation);
+  const labels = slotLabels(editSlots);
   field.querySelectorAll('.field-slot').forEach(s => { s.querySelector('.pos-label').textContent = labels[s.dataset.pos] || ''; });
   const name = document.getElementById('formation-edit-name');
-  if (name) name.textContent = formationName();
+  if (name) name.textContent = formationName(editSlots);
 }
 
 // ---- STATE ----
@@ -1541,6 +1623,7 @@ function defaultState() {
     shifts: {},
     midShiftSubs: {},
     formation: presetSlots('433'),
+    shiftFormations: {},  // shift_i -> spots, when a shift differs from `formation`
     locked: false,
     // Game clock. Elapsed seconds = clockBase + (now - clockStartedAt) while
     // running. Both are shared, so every phone shows the same clock and a
@@ -1566,6 +1649,7 @@ function normalizeState(data) {
   if (!s.shifts) s.shifts = {};
   // Docs from before formations were configurable are all 4-3-3
   if (!Array.isArray(s.formation) || s.formation.length !== 11) s.formation = presetSlots('433');
+  if (!s.shiftFormations || typeof s.shiftFormations !== 'object') s.shiftFormations = {};
   return s;
 }
 
@@ -1579,6 +1663,7 @@ function docFromState() {
     shifts: state.shifts,
     midShiftSubs: state.midShiftSubs || {},
     formation: state.formation,
+    shiftFormations: state.shiftFormations || {},
     locked: !!state.locked,
     clockBase: state.clockBase || 0,
     clockStartedAt: state.clockStartedAt || 0,
@@ -1782,7 +1867,7 @@ function showScreen(key) {
   document.getElementById(screens[key]).classList.add('active');
   document.querySelectorAll('.bottom-nav .nav-btn[data-screen]').forEach(b => b.classList.toggle('active', b.dataset.screen === key));
   document.getElementById('more-btn').classList.toggle('active', key === 'roster' || key === 'playtime');
-  if (key !== 'shifts') { clearBenchSelection(false); formationEditing = false; }
+  if (key !== 'shifts') { clearBenchSelection(false); formationEditing = false; editSlots = null; }
   if (key === 'roster') renderRoster();
   if (key === 'shifts') renderShifts();
   if (key === 'transitions') renderTransitions();
@@ -1823,7 +1908,7 @@ function totalShifts() { return state.halves * state.shiftsPerHalf; }
 function shiftKey(i) { return `shift_${i}`; }
 function getShift(i) { return state.shifts[shiftKey(i)] || {}; }
 function shiftIsEmpty(i) { return Object.keys(getShift(i)).length === 0; }
-function shiftIsFull(i) { const s = getShift(i); return state.formation.every(p => s[p.id]); }
+function shiftIsFull(i) { const s = getShift(i); return formationFor(i).every(p => s[p.id]); }
 function halfOf(i) { return Math.floor(i / state.shiftsPerHalf); }
 function halfName(h) { return h === 0 ? '1st Half' : '2nd Half'; }
 function shiftDisplayName(i) { return `${halfName(halfOf(i))} · Shift ${(i % state.shiftsPerHalf) + 1}`; }
@@ -1923,8 +2008,7 @@ function renderRoster() {
   document.querySelectorAll('#sph-seg .seg-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.sph) === state.shiftsPerHalf));
   document.getElementById('sph-seg').classList.toggle('disabled', !!state.locked);
   document.getElementById('mph-value').textContent = String(state.minutesPerHalf);
-  document.getElementById('setup-formation-btn').textContent = `${formationName()}${matchingPreset() ? '' : ' (custom)'} ▾`;
-  document.getElementById('setup-formation-btn').disabled = !!state.locked;
+  document.getElementById('setup-formation-btn').textContent = `${formationName(state.formation)}${matchingPreset(state.formation) ? '' : ' (custom)'}${formationVaries() ? ' · varies' : ''} ▾`;
   document.getElementById('mph-minus').disabled = !!state.locked || state.minutesPerHalf <= MPH_MIN;
   document.getElementById('mph-plus').disabled = !!state.locked || state.minutesPerHalf >= MPH_MAX;
   document.getElementById('setup-note').textContent =
@@ -2027,10 +2111,11 @@ document.getElementById('mph-minus').addEventListener('click', () => bumpMinutes
 document.getElementById('mph-plus').addEventListener('click', () => bumpMinutes(MPH_STEP));
 
 document.getElementById('new-game-btn').addEventListener('click', () => {
-  askConfirm('Start a new game?', 'Clears check-ins, all shift lineups, in-shift subs, and the clock, and unlocks shifts. The roster itself is kept.', 'Yes — new game', 'Cancel', () => {
+  askConfirm('Start a new game?', 'Clears check-ins, all shift lineups, in-shift subs, per-shift formation changes, and the clock, and unlocks shifts. The roster and game formation are kept.', 'Yes — new game', 'Cancel', () => {
     state.checkedIn = [];
     state.shifts = {};
     state.midShiftSubs = {};
+    state.shiftFormations = {};
     state.clockBase = 0;
     state.clockStartedAt = 0;
     state.locked = false;
@@ -2039,7 +2124,7 @@ document.getElementById('new-game-btn').addEventListener('click', () => {
     transitionFollowGame = true;
     hideShiftBanner();
     releaseWakeLock();
-    persist({ checkedIn: [], shifts: {}, midShiftSubs: {}, clockBase: 0, clockStartedAt: 0, locked: false }, { immediate: true });
+    persist({ checkedIn: [], shifts: {}, midShiftSubs: {}, shiftFormations: {}, clockBase: 0, clockStartedAt: 0, locked: false }, { immediate: true });
     renderAll();
     toast('New game — fresh slate, roster kept');
   });
@@ -2106,6 +2191,7 @@ function renderShiftTabs() {
 
   bar.querySelectorAll('.shift-tab').forEach(tab => {
     tab.addEventListener('click', () => {
+      if (formationEditing) stopFormationEdit(true);
       setCurrentShift(parseInt(tab.dataset.shift));
       clearBenchSelection(false);
       renderShifts();
@@ -2135,11 +2221,11 @@ function openSwapInModal(i, name, after) {
   const shift = getShift(i);
   const entries = Object.entries(shift).sort((a, b) => a[1].localeCompare(b[1]));
   const credit = plannedShifts();
-  const openPos = state.formation.find(p => !shift[p.id]);
+  const openPos = formationFor(i).find(p => !shift[p.id]);
   let html = `<div class="modal-note">${esc(shiftDisplayName(i))}${state.locked ? ' · allowed while locked' : ''}</div>`;
-  if (openPos) html += `<div class="modal-player full-row" data-pos="${openPos.id}" style="background:var(--green);color:#06301a;">Open spot: ${fullPos(openPos.id)}</div>`;
+  if (openPos) html += `<div class="modal-player full-row" data-pos="${openPos.id}" style="background:var(--green);color:#06301a;">Open spot: ${fullPos(openPos.id, i)}</div>`;
   html += entries.map(([pos, n]) =>
-    `<div class="modal-player" data-pos="${pos}" data-out="${esc(n)}">${esc(n)} <span class="mp-meta">${fullPos(pos)} · ${fmtShifts(credit[n] || 0)} shifts</span></div>`).join('');
+    `<div class="modal-player" data-pos="${pos}" data-out="${esc(n)}">${esc(n)} <span class="mp-meta">${fullPos(pos, i)} · ${fmtShifts(credit[n] || 0)} shifts</span></div>`).join('');
   const list = openModal(`Put ${name} on — who comes out?`, html);
   list.querySelectorAll('.modal-player').forEach(el => el.addEventListener('click', () => {
     if (!state.shifts[shiftKey(i)]) state.shifts[shiftKey(i)] = {};
@@ -2148,7 +2234,7 @@ function openSwapInModal(i, name, after) {
     s[el.dataset.pos] = name;
     saveShift(i);
     closeModal();
-    toast(el.dataset.out ? `${name} on for ${el.dataset.out} at ${posLabel(el.dataset.pos)}` : `${name} on at ${posLabel(el.dataset.pos)}`);
+    toast(el.dataset.out ? `${name} on for ${el.dataset.out} at ${posLabel(el.dataset.pos, i)}` : `${name} on at ${posLabel(el.dataset.pos, i)}`);
     if (after) after();
   }));
 }
@@ -2175,7 +2261,7 @@ function slotTapped(posId) {
     shift[posId] = name;
     saveShift(currentShiftIndex);
     renderShifts();
-    toast(displaced ? `${name} in at ${posLabel(posId)} · ${displaced} to the bench` : `${name} in at ${posLabel(posId)}`);
+    toast(displaced ? `${name} in at ${posLabel(posId, currentShiftIndex)} · ${displaced} to the bench` : `${name} in at ${posLabel(posId, currentShiftIndex)}`);
     return;
   }
   openAssignModal(posId);
@@ -2195,7 +2281,7 @@ function renderField() {
   field.classList.toggle('editing', formationEditing);
   renderFormationBar();
 
-  field.innerHTML = positions().map(pos => {
+  field.innerHTML = positions(currentShiftIndex).map(pos => {
     const player = shift[pos.id];
     const filledClass = player ? 'filled' : '';
     const sub = subByPos[pos.id];
@@ -2330,12 +2416,15 @@ function renderField() {
 function renderFormationBar() {
   const btn = document.getElementById('formation-btn');
   const bar = document.getElementById('formation-edit-bar');
-  document.getElementById('formation-btn-name').textContent = formationName();
+  document.getElementById('formation-btn-name').textContent = formationName(formationFor(currentShiftIndex));
   btn.style.display = formationEditing ? 'none' : '';
   document.getElementById('clear-shift-btn').style.display = formationEditing ? 'none' : '';
   document.getElementById('copy-prev-btn').style.display = formationEditing ? 'none' : '';
   bar.classList.toggle('show', formationEditing);
-  if (formationEditing) document.getElementById('formation-edit-name').textContent = formationName();
+  if (formationEditing) {
+    document.getElementById('formation-edit-name').textContent = formationName(editSlots);
+    document.getElementById('formation-edit-scope').textContent = formationScope === 'game' ? 'whole game' : formationScope === 'shift' ? `${shortShiftName(formationFrom)} only` : `${shortShiftName(formationFrom)} on`;
+  }
 }
 
 // Drag a player onto another spot: they swap if it's occupied, otherwise the
@@ -2415,7 +2504,7 @@ function renderBench() {
 function openAssignModal(posId) {
   if (editLocked()) return;
   const i = currentShiftIndex;
-  const pos = positions().find(p => p.id === posId);
+  const pos = positions(i).find(p => p.id === posId);
   const shift = getShift(i);
   const currentPlayer = shift[posId];
   const credit = plannedShifts();
@@ -2442,7 +2531,7 @@ function openAssignModal(posId) {
   if (fieldNames.length > 0) {
     html += `<div class="modal-divider">Already on the field — picking one moves them here</div>`;
     fieldNames.forEach(name => {
-      html += `<div class="modal-player dimmed" data-assign="${esc(name)}">${esc(name)} <span class="mp-meta">(${posLabel(posByName[name])})</span></div>`;
+      html += `<div class="modal-player dimmed" data-assign="${esc(name)}">${esc(name)} <span class="mp-meta">(${posLabel(posByName[name], i)})</span></div>`;
     });
   }
 
@@ -2496,13 +2585,13 @@ document.getElementById('copy-prev-btn').addEventListener('click', () => {
   toast('Copied — swap in the bench players who sat');
 });
 
-document.getElementById('formation-btn').addEventListener('click', openFormationModal);
-document.getElementById('setup-formation-btn').addEventListener('click', openFormationModal);
-document.getElementById('formation-done-btn').addEventListener('click', stopFormationEdit);
+document.getElementById('formation-btn').addEventListener('click', () => openFormationModal());
+document.getElementById('setup-formation-btn').addEventListener('click', () => openFormationModal({ fromSetup: true }));
+document.getElementById('formation-done-btn').addEventListener('click', () => stopFormationEdit());
 document.getElementById('formation-reset-btn').addEventListener('click', () => {
-  const base = matchingPreset();
-  askConfirm('Reset to 4-3-3?', base ? null : 'Your custom spots will be replaced. Players carry over to the nearest spot.', 'Yes — reset', 'Cancel', () => {
-    applyFormation(presetSlots('433'));
+  askConfirm('Reset to 4-3-3?', 'Players carry over to the nearest spot.', 'Yes — reset', 'Cancel', () => {
+    editSlots = presetSlots('433');
+    setFormation(formationScope, formationFrom, editSlots);
     renderShifts();
   });
 });
@@ -2839,29 +2928,33 @@ document.getElementById('trans-now').addEventListener('click', () => {
 });
 
 // Pair each player coming on with the player they replace. First by
-// position (same spot vacated), then whoever is left, in order.
-function computeTransition(prev, next) {
-  const prevPos = {}, nextPos = {};
-  Object.entries(prev).forEach(([p, n]) => { prevPos[n] = p; });
+// position (same spot vacated), then whoever is left, in order. Positions
+// are compared by label (LB, CDM...) because the two shifts can use
+// different formations.
+function computeTransition(toIndex) {
+  const prev = getShift(toIndex - 1), next = getShift(toIndex);
+  const prevLabels = slotLabels(formationFor(toIndex - 1)), nextLabels = slotLabels(formationFor(toIndex));
+  const prevPos = {}, nextPos = {}, prevByLabel = {};
+  Object.entries(prev).forEach(([p, n]) => { prevPos[n] = p; prevByLabel[prevLabels[p]] = n; });
   Object.entries(next).forEach(([p, n]) => { nextPos[n] = p; });
   const comingOff = Object.keys(prevPos).filter(n => !nextPos[n]);
-  const comingOn = state.formation.map(p => next[p.id]).filter(n => n && !prevPos[n]);
+  const comingOn = formationFor(toIndex).map(p => next[p.id]).filter(n => n && !prevPos[n]);
   const staying = Object.keys(prevPos).filter(n => nextPos[n]);
-  const moving = staying.filter(n => prevPos[n] !== nextPos[n]);
-  const same = staying.filter(n => prevPos[n] === nextPos[n]);
+  const moving = staying.filter(n => prevLabels[prevPos[n]] !== nextLabels[nextPos[n]]);
+  const same = staying.filter(n => prevLabels[prevPos[n]] === nextLabels[nextPos[n]]);
 
   const pairs = [];
   const usedOff = new Set();
   const unpairedOn = [];
   comingOn.forEach(n => {
     const p = nextPos[n];
-    const was = prev[p];
+    const was = prevByLabel[nextLabels[p]];
     if (was && comingOff.includes(was) && !usedOff.has(was)) { pairs.push({ off: was, on: n, pos: p }); usedOff.add(was); }
     else unpairedOn.push(n);
   });
   const leftoverOff = comingOff.filter(n => !usedOff.has(n));
   unpairedOn.forEach(n => { pairs.push({ off: leftoverOff.shift() || null, on: n, pos: nextPos[n] }); });
-  leftoverOff.forEach(n => pairs.push({ off: n, on: null, pos: prevPos[n] }));
+  leftoverOff.forEach(n => pairs.push({ off: n, on: null, pos: null }));
   return { pairs, moving, same, prevPos, nextPos };
 }
 
@@ -2875,8 +2968,14 @@ function renderTransitionDetail(toIndex) {
     return;
   }
 
-  const t = computeTransition(prev, next);
+  const t = computeTransition(toIndex);
   let html = '';
+
+  // Shape change between the two shifts
+  const fromName = formationName(formationFor(toIndex - 1)), toName = formationName(formationFor(toIndex));
+  if (!sameFormation(formationFor(toIndex - 1), formationFor(toIndex))) {
+    html += `<div class="transition-section"><div class="transition-item move" style="font-weight:700;">🔀 Formation change: ${esc(fromName)} → ${esc(toName)}</div></div>`;
+  }
 
   // Anyone who sat the last two shifts and still isn't in the one we're subbing INTO
   const v = unresolvedMustPlay(toIndex);
@@ -2888,10 +2987,10 @@ function renderTransitionDetail(toIndex) {
     </div>`;
   }
 
-  const openSpots = state.formation.filter(p => !next[p.id]);
+  const openSpots = formationFor(toIndex).filter(p => !next[p.id]);
   if (openSpots.length > 0) {
     html += `<div class="transition-section">
-      <div class="transition-item warn">⚠️ ${openSpots.length} open spot${openSpots.length > 1 ? 's' : ''} in ${shiftDisplayName(toIndex)}: ${openSpots.map(p => fullPos(p.id)).join(', ')} — fill on the Shifts tab</div>
+      <div class="transition-item warn">⚠️ ${openSpots.length} open spot${openSpots.length > 1 ? 's' : ''} in ${shiftDisplayName(toIndex)}: ${openSpots.map(p => fullPos(p.id, toIndex)).join(', ')} — fill on the Shifts tab</div>
     </div>`;
   }
 
@@ -2899,21 +2998,21 @@ function renderTransitionDetail(toIndex) {
     html += `<div class="transition-section"><h3 class="subs">SUBS (${t.pairs.length})</h3>` +
       t.pairs.map(p => `<div class="sub-pair">
         <div class="sub-off"><div class="sub-tag">Off</div>${p.off ? `<div class="sub-name">${esc(p.off)}</div>` : `<div class="sub-none">nobody — spot was open</div>`}</div>
-        <div class="sub-on"><div class="sub-tag">On</div>${p.on ? `<div class="sub-name">${esc(p.on)}</div><div class="sub-pos">${fullPos(p.pos)}</div>` : `<div class="sub-none">nobody — spot left open</div>`}</div>
+        <div class="sub-on"><div class="sub-tag">On</div>${p.on ? `<div class="sub-name">${esc(p.on)}</div><div class="sub-pos">${fullPos(p.pos, toIndex)}</div>` : `<div class="sub-none">nobody — spot left open</div>`}</div>
       </div>`).join('') + `</div>`;
   }
 
   if (t.moving.length > 0) {
     html += `<div class="transition-section">
       <h3 class="move">SWITCHING POSITION (${t.moving.length})</h3>
-      ${t.moving.map(n => `<div class="transition-item move callout-big">${esc(n)} <span class="transition-arrow">${fullPos(t.prevPos[n])} → ${fullPos(t.nextPos[n])}</span></div>`).join('')}
+      ${t.moving.map(n => `<div class="transition-item move callout-big">${esc(n)} <span class="transition-arrow">${fullPos(t.prevPos[n], toIndex - 1)} → ${fullPos(t.nextPos[n], toIndex)}</span></div>`).join('')}
     </div>`;
   }
 
   if (t.same.length > 0) {
     html += `<div class="transition-section">
       <h3 class="stay">STAYING PUT (${t.same.length})</h3>
-      <div class="transition-item stay">${t.same.map(n => `${esc(n)} <span class="transition-arrow">${posLabel(t.prevPos[n])}</span>`).join(' &nbsp;·&nbsp; ')}</div>
+      <div class="transition-item stay">${t.same.map(n => `${esc(n)} <span class="transition-arrow">${posLabel(t.prevPos[n], toIndex - 1)}</span>`).join(' &nbsp;·&nbsp; ')}</div>
     </div>`;
   }
 
@@ -2939,7 +3038,7 @@ function openInjurySubModal() {
   const list = openModal('In-shift sub — who is going off?',
     `<div class="modal-note">Current shift: ${esc(shiftDisplayName(idx))}${state.locked ? ' · allowed while locked' : ''}</div>` +
     entries.sort((a, b) => a[1].localeCompare(b[1])).map(([pos, name]) =>
-      `<div class="modal-player" data-off="${esc(name)}" data-pos="${pos}">${esc(name)} <span class="mp-meta">(${fullPos(pos)})</span></div>`
+      `<div class="modal-player" data-off="${esc(name)}" data-pos="${pos}">${esc(name)} <span class="mp-meta">(${fullPos(pos, idx)})</span></div>`
     ).join(''));
 
   list.querySelectorAll('.modal-player').forEach(el => {
@@ -2960,18 +3059,18 @@ function pickFillFor(idx, openPos, displacedName, moves, injured) {
     .filter(([p, n]) => !unavailable.has(n) && p !== openPos)
     .sort((a, b) => a[1].localeCompare(b[1]));
 
-  let html = `<div class="modal-note">${esc(displacedName)} is leaving ${fullPos(openPos)}</div>`;
+  let html = `<div class="modal-note">${esc(displacedName)} is leaving ${fullPos(openPos, idx)}</div>`;
   bench.forEach(n => {
     html += `<div class="modal-player" data-bench="${esc(n)}">${esc(n)}<span class="mp-meta">${fmtShifts(credit[n] || 0)} shifts</span></div>`;
   });
   if (fieldOptions.length > 0) {
     html += `<div class="modal-divider">Or slide over an on-field player</div>`;
     fieldOptions.forEach(([p, n]) => {
-      html += `<div class="modal-player dimmed" data-field="${esc(n)}" data-frompos="${p}">${esc(n)} <span class="mp-meta">(from ${posLabel(p)})</span></div>`;
+      html += `<div class="modal-player dimmed" data-field="${esc(n)}" data-frompos="${p}">${esc(n)} <span class="mp-meta">(from ${posLabel(p, idx)})</span></div>`;
     });
   }
-  html += `<div class="modal-player full-row" data-leave-open="1" style="color:var(--gray);">Leave ${fullPos(openPos)} open</div>`;
-  const list = openModal(`Who takes ${fullPos(openPos)}?`, html);
+  html += `<div class="modal-player full-row" data-leave-open="1" style="color:var(--gray);">Leave ${fullPos(openPos, idx)} open</div>`;
+  const list = openModal(`Who takes ${fullPos(openPos, idx)}?`, html);
 
   list.querySelectorAll('.modal-player').forEach(el => {
     el.addEventListener('click', () => {
@@ -2999,8 +3098,8 @@ function finalizeInjurySub(idx, injured, moves, entrant) {
   if (!state.midShiftSubs[key]) state.midShiftSubs[key] = [];
   state.midShiftSubs[key].push({ off: injured.name, on: entrant ? entrant.name : '', pos: entrant ? entrant.pos : injured.pos });
 
-  const parts = moves.map(m => `${m.player} → ${posLabel(m.to)}`);
-  if (entrant) parts.push(`${entrant.name} on at ${posLabel(entrant.pos)}`);
+  const parts = moves.map(m => `${m.player} → ${posLabel(m.to, idx)}`);
+  if (entrant) parts.push(`${entrant.name} on at ${posLabel(entrant.pos, idx)}`);
   const summary = parts.length ? parts.join(', ') : 'spot left open';
 
   persist({ [`shifts.${key}`]: shift, [`midShiftSubs.${key}`]: state.midShiftSubs[key] });
@@ -3165,7 +3264,7 @@ const POS_FULL_NAMES = {
   CAM: 'Attacking Mid', LAM: 'Left Attacking Mid', RAM: 'Right Attacking Mid',
   LW: 'Left Wing', RW: 'Right Wing', ST: 'Striker', LS: 'Left Striker', RS: 'Right Striker'
 };
-function fullPos(id) { const l = posLabel(id); return POS_FULL_NAMES[l] || l; }
+function fullPos(id, i) { const l = posLabel(id, i); return POS_FULL_NAMES[l] || l; }
 
 // ---- SERVICE WORKER ----
 if ('serviceWorker' in navigator) {
