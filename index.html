@@ -529,6 +529,22 @@ body {
   transform: translate(-50%, -50%);
 }
 
+/* --- FORMATION EDITING --- */
+.field.editing { border-color: var(--orange); border-style: dashed; }
+.field.editing .field-slot { touch-action: none; cursor: grab; }
+.field.editing .field-slot.fixed { cursor: default; opacity: 0.7; }
+.field.editing .field-slot .player-badge { outline: 2px solid var(--orange); outline-offset: 2px; }
+.field.editing .field-slot.fixed .player-badge { outline: none; }
+.field.editing .field-slot.moving { z-index: 20; cursor: grabbing; }
+.field.editing .field-slot.moving .player-badge { transform: scale(1.12); box-shadow: 0 4px 14px rgba(0,0,0,0.45); }
+.field.editing .field-slot .pos-label { color: white; font-size: 11px; }
+.formation-edit-bar {
+  display: none; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;
+  padding: 6px 0 0; font-size: 14px; color: var(--gray-light);
+}
+.formation-edit-bar.show { display: flex; }
+.formation-edit-bar b { color: white; }
+
 /* --- BENCH --- */
 .bench-panel {
   width: 220px;
@@ -1088,6 +1104,10 @@ body {
           <button class="step-ctl" id="mph-plus">+</button>
         </div>
       </div>
+      <div class="setup-field">
+        <span class="setup-label">Formation</span>
+        <button class="btn btn-ghost" id="setup-formation-btn" style="font-size:16px;font-weight:700;"></button>
+      </div>
       <span class="setup-note" id="setup-note"></span>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -1111,7 +1131,13 @@ body {
     <div class="field-and-bench">
       <div class="field-container">
         <div class="field" id="field"></div>
+        <div class="formation-edit-bar" id="formation-edit-bar">
+          <span>✋ Drag spots to reshape · <b id="formation-edit-name"></b></span>
+          <button class="btn btn-sm btn-ghost" id="formation-reset-btn">Reset</button>
+          <button class="btn btn-sm btn-primary" id="formation-done-btn">Done</button>
+        </div>
         <div class="auto-fill-bar">
+          <button class="btn btn-sm btn-ghost" id="formation-btn">Formation: <b id="formation-btn-name"></b></button>
           <button class="btn btn-sm btn-ghost" id="clear-shift-btn">Clear Shift</button>
           <button class="btn btn-sm btn-ghost" id="copy-prev-btn">Copy Previous Shift</button>
         </div>
@@ -1293,6 +1319,215 @@ function setSyncStatus(status) {
   dot.title = status === 'offline' ? 'Offline' : status === 'syncing' ? 'Syncing...' : 'Synced';
 }
 
+// =====================================================================
+// FORMATIONS
+// The formation is shared team state: 11 spots { id, x, y } in percent of
+// the field (y = 0 is the attacking end). Shift lineups map spot id ->
+// player, so ids are opaque and stay put when a spot is dragged. Labels
+// (LB, CDM, ST...) are derived from where a spot sits, so a dragged spot
+// renames itself.
+// =====================================================================
+const BACK_FOUR = [
+  { id: 'lb', x: 15, y: 72 }, { id: 'lcb', x: 38, y: 75 }, { id: 'rcb', x: 62, y: 75 }, { id: 'rb', x: 85, y: 72 },
+];
+const GK_SPOT = { id: 'gk', x: 50, y: 90 };
+const FORMATION_PRESETS = [
+  { key: '433', name: '4-3-3', slots: [GK_SPOT, ...BACK_FOUR,
+    { id: 'lm', x: 22, y: 48 }, { id: 'cdm', x: 50, y: 55 }, { id: 'rm', x: 78, y: 48 },
+    { id: 'lw', x: 18, y: 20 }, { id: 'st', x: 50, y: 15 }, { id: 'rw', x: 82, y: 20 }] },
+  { key: '442', name: '4-4-2', slots: [GK_SPOT, ...BACK_FOUR,
+    { id: 'lm', x: 12, y: 47 }, { id: 'lcm', x: 37, y: 50 }, { id: 'rcm', x: 63, y: 50 }, { id: 'rm', x: 88, y: 47 },
+    { id: 'ls', x: 36, y: 18 }, { id: 'rs', x: 64, y: 18 }] },
+  { key: '442d', name: '4-4-2 ◆', slots: [GK_SPOT, ...BACK_FOUR,
+    { id: 'cdm', x: 50, y: 59 }, { id: 'lm', x: 20, y: 46 }, { id: 'rm', x: 80, y: 46 }, { id: 'cam', x: 50, y: 33 },
+    { id: 'ls', x: 37, y: 16 }, { id: 'rs', x: 63, y: 16 }] },
+  { key: '451', name: '4-5-1', slots: [GK_SPOT, ...BACK_FOUR,
+    { id: 'lm', x: 12, y: 44 }, { id: 'lcm', x: 32, y: 50 }, { id: 'cdm', x: 50, y: 56 }, { id: 'rcm', x: 68, y: 50 }, { id: 'rm', x: 88, y: 44 },
+    { id: 'st', x: 50, y: 16 }] },
+  { key: '4213', name: '4-2-1-3', slots: [GK_SPOT, ...BACK_FOUR,
+    { id: 'ldm', x: 37, y: 57 }, { id: 'rdm', x: 63, y: 57 }, { id: 'cam', x: 50, y: 36 },
+    { id: 'lw', x: 18, y: 20 }, { id: 'st', x: 50, y: 15 }, { id: 'rw', x: 82, y: 20 }] },
+  { key: '4231', name: '4-2-3-1', slots: [GK_SPOT, ...BACK_FOUR,
+    { id: 'ldm', x: 37, y: 57 }, { id: 'rdm', x: 63, y: 57 },
+    { id: 'lw', x: 16, y: 33 }, { id: 'cam', x: 50, y: 35 }, { id: 'rw', x: 84, y: 33 },
+    { id: 'st', x: 50, y: 14 }] },
+  { key: '352', name: '3-5-2', slots: [GK_SPOT,
+    { id: 'lcb', x: 30, y: 74 }, { id: 'cb', x: 50, y: 76 }, { id: 'rcb', x: 70, y: 74 },
+    { id: 'lwb', x: 10, y: 56 }, { id: 'lcm', x: 32, y: 47 }, { id: 'cm', x: 50, y: 51 }, { id: 'rcm', x: 68, y: 47 }, { id: 'rwb', x: 90, y: 56 },
+    { id: 'ls', x: 37, y: 17 }, { id: 'rs', x: 63, y: 17 }] },
+];
+function presetSlots(key) { return FORMATION_PRESETS.find(p => p.key === key).slots.map(s => ({ ...s })); }
+
+// Field zone -> label. Central labels that repeat get L/R prefixes
+// (two CBs -> LCB, RCB; three CMs -> LCM, CM, RCM).
+function zoneLabel(x, y) {
+  const side = x < 28 ? 'L' : x > 72 ? 'R' : '';
+  if (y >= 63) return side ? side + 'B' : 'CB';
+  if (y >= 53) return side ? side + 'WB' : 'CDM';
+  if (y >= 38) return side ? side + 'M' : 'CM';
+  if (y >= 27) return side ? side + 'W' : 'CAM';
+  return side ? side + 'W' : 'ST';
+}
+const CENTRAL_SPLIT = { CB: ['LCB', 'RCB'], CDM: ['LDM', 'RDM'], CM: ['LCM', 'RCM'], CAM: ['LAM', 'RAM'], ST: ['LS', 'RS'] };
+function slotLabels(slots) {
+  const labels = {};
+  const groups = {};
+  slots.forEach(s => {
+    if (s.id === 'gk') { labels.gk = 'GK'; return; }
+    const l = zoneLabel(s.x, s.y);
+    (groups[l] = groups[l] || []).push(s);
+  });
+  Object.entries(groups).forEach(([l, group]) => {
+    group.sort((a, b) => a.x - b.x);
+    const split = CENTRAL_SPLIT[l];
+    if (group.length === 1) labels[group[0].id] = l;
+    else if (split && group.length === 2) { labels[group[0].id] = split[0]; labels[group[1].id] = split[1]; }
+    else if (split && group.length === 3) { labels[group[0].id] = split[0]; labels[group[1].id] = l; labels[group[2].id] = split[1]; }
+    else group.forEach((s, k) => { labels[s.id] = k === 0 ? l : l + (k + 1); });
+  });
+  return labels;
+}
+
+// The current formation's spots, with labels
+function positions() {
+  const labels = slotLabels(state.formation);
+  return state.formation.map(s => ({ ...s, label: labels[s.id] || s.id.toUpperCase() }));
+}
+function posLabel(id) { return slotLabels(state.formation)[id] || id.toUpperCase(); }
+
+// "4-4-2" for a preset; for a custom shape, count lines from the back
+// (spots within 10% of each other's height are one line)
+function formationName(slots = state.formation) {
+  const preset = matchingPreset(slots);
+  if (preset) return preset.name;
+  const ys = slots.filter(s => s.id !== 'gk').map(s => s.y).sort((a, b) => b - a);
+  const lines = [];
+  ys.forEach((y, k) => { if (k === 0 || ys[k - 1] - y > 10) lines.push(1); else lines[lines.length - 1]++; });
+  return lines.join('-');
+}
+function matchingPreset(slots = state.formation) {
+  return FORMATION_PRESETS.find(p => p.slots.length === slots.length &&
+    p.slots.every(ps => slots.some(s => s.id === ps.id && s.x === ps.x && s.y === ps.y))) || null;
+}
+
+// Switch to new spots, carrying every lineup across: a spot keeps its
+// player if the new formation has the same id, otherwise players go to the
+// nearest free new spot.
+function applyFormation(newSlots) {
+  const oldSlots = state.formation;
+  const map = {};
+  const freeOld = oldSlots.filter(o => {
+    if (newSlots.some(n => n.id === o.id)) { map[o.id] = o.id; return false; }
+    return true;
+  });
+  const freeNew = newSlots.filter(n => !oldSlots.some(o => o.id === n.id));
+  // Greedy nearest pairs, then swap any two pairs while that shortens the
+  // total distance (so a winger doesn't end up at CAM when a striker could)
+  const dist = (o, n) => Math.hypot(o.x - n.x, o.y - n.y);
+  const pairs = [];
+  while (freeOld.length && freeNew.length) {
+    let best = null;
+    freeOld.forEach((o, a) => freeNew.forEach((n, b) => {
+      const d = dist(o, n);
+      if (!best || d < best.d) best = { d, a, b };
+    }));
+    pairs.push([freeOld[best.a], freeNew[best.b]]);
+    freeOld.splice(best.a, 1);
+    freeNew.splice(best.b, 1);
+  }
+  for (let improved = true; improved;) {
+    improved = false;
+    for (let a = 0; a < pairs.length; a++) for (let b = a + 1; b < pairs.length; b++) {
+      const [oa, na] = pairs[a], [ob, nb] = pairs[b];
+      if (dist(oa, nb) + dist(ob, na) < dist(oa, na) + dist(ob, nb) - 0.01) { pairs[a] = [oa, nb]; pairs[b] = [ob, na]; improved = true; }
+    }
+  }
+  pairs.forEach(([o, n]) => { map[o.id] = n.id; });
+  Object.keys(state.shifts).forEach(k => {
+    const moved = {};
+    Object.entries(state.shifts[k]).forEach(([pos, name]) => { if (map[pos]) moved[map[pos]] = name; });
+    state.shifts[k] = moved;
+  });
+  Object.values(state.midShiftSubs || {}).forEach(list => list.forEach(s => { if (map[s.pos]) s.pos = map[s.pos]; }));
+  state.formation = newSlots.map(s => ({ ...s }));
+  persist({ formation: state.formation, shifts: state.shifts, midShiftSubs: state.midShiftSubs || {} });
+}
+
+// Formation picker (Shifts tab + Game Setup)
+let formationEditing = false;
+function openFormationModal() {
+  if (editLocked()) return;
+  const current = matchingPreset();
+  let html = `<div class="modal-note">Current: <b style="color:white;">${esc(formationName())}</b>${current ? '' : ' (custom)'} · players carry over to the nearest spot</div>`;
+  html += FORMATION_PRESETS.map(p =>
+    `<div class="modal-player ${current && current.key === p.key ? 'current' : ''}" data-preset="${p.key}" style="align-items:center;text-align:center;font-size:18px;font-weight:700;">${p.name}</div>`).join('');
+  html += `<div class="modal-player full-row" id="formation-custom" style="background:rgba(232,101,26,0.18);border:1px solid var(--orange);">✋ Drag spots to make your own<span class="mp-meta">Move any player spot on the field — e.g. push a mid up or drop one deep</span></div>`;
+  const list = openModal('Formation', html);
+  list.querySelectorAll('[data-preset]').forEach(el => el.addEventListener('click', () => {
+    applyFormation(presetSlots(el.dataset.preset));
+    closeModal();
+    renderAll();
+    toast(`Formation: ${formationName()}`);
+  }));
+  document.getElementById('formation-custom').addEventListener('click', () => {
+    closeModal();
+    startFormationEdit();
+  });
+}
+function startFormationEdit() {
+  if (editLocked()) return;
+  formationEditing = true;
+  clearBenchSelection(false);
+  showScreen('shifts');
+}
+function stopFormationEdit() {
+  formationEditing = false;
+  renderShifts();
+  renderRoster();
+  toast(`Formation saved: ${formationName()}`);
+}
+
+// Edit mode: drag a spot to move it (the goalkeeper stays in goal)
+function attachFormationDrag(field) {
+  field.querySelectorAll('.field-slot').forEach(slot => {
+    const id = slot.dataset.pos;
+    if (id === 'gk') return;
+    slot.addEventListener('pointerdown', e => {
+      if (state.locked) { editLocked(); return; }
+      e.preventDefault();
+      const rect = field.getBoundingClientRect();
+      try { slot.setPointerCapture(e.pointerId); } catch {}
+      slot.classList.add('moving');
+      const move = ev => {
+        const spot = state.formation.find(s => s.id === id);
+        if (!spot) return;
+        spot.x = Math.round(Math.max(6, Math.min(94, ((ev.clientX - rect.left) / rect.width) * 100)));
+        spot.y = Math.round(Math.max(8, Math.min(82, ((ev.clientY - rect.top) / rect.height) * 100)));
+        slot.style.left = spot.x + '%';
+        slot.style.top = spot.y + '%';
+        refreshFormationLabels(field);
+      };
+      const up = () => {
+        slot.removeEventListener('pointermove', move);
+        slot.removeEventListener('pointerup', up);
+        slot.removeEventListener('pointercancel', up);
+        slot.classList.remove('moving');
+        saveFields('formation');
+        renderShifts();
+      };
+      slot.addEventListener('pointermove', move);
+      slot.addEventListener('pointerup', up);
+      slot.addEventListener('pointercancel', up);
+    });
+  });
+}
+function refreshFormationLabels(field) {
+  const labels = slotLabels(state.formation);
+  field.querySelectorAll('.field-slot').forEach(s => { s.querySelector('.pos-label').textContent = labels[s.dataset.pos] || ''; });
+  const name = document.getElementById('formation-edit-name');
+  if (name) name.textContent = formationName();
+}
+
 // ---- STATE ----
 let state = defaultState();
 
@@ -1305,6 +1540,7 @@ function defaultState() {
     minutesPerHalf: 35,
     shifts: {},
     midShiftSubs: {},
+    formation: presetSlots('433'),
     locked: false,
     // Game clock. Elapsed seconds = clockBase + (now - clockStartedAt) while
     // running. Both are shared, so every phone shows the same clock and a
@@ -1328,6 +1564,8 @@ function normalizeState(data) {
   delete s.currentShiftIndex;
   if (!s.midShiftSubs) s.midShiftSubs = {};
   if (!s.shifts) s.shifts = {};
+  // Docs from before formations were configurable are all 4-3-3
+  if (!Array.isArray(s.formation) || s.formation.length !== 11) s.formation = presetSlots('433');
   return s;
 }
 
@@ -1340,6 +1578,7 @@ function docFromState() {
     minutesPerHalf: state.minutesPerHalf,
     shifts: state.shifts,
     midShiftSubs: state.midShiftSubs || {},
+    formation: state.formation,
     locked: !!state.locked,
     clockBase: state.clockBase || 0,
     clockStartedAt: state.clockStartedAt || 0,
@@ -1535,21 +1774,6 @@ function editLocked() {
   return false;
 }
 
-// 4-3-3 formation positions (percentage-based coordinates)
-const POSITIONS = [
-  { id: 'gk',  label: 'GK',  x: 50, y: 90 },
-  { id: 'lb',  label: 'LB',  x: 15, y: 72 },
-  { id: 'lcb', label: 'LCB', x: 38, y: 75 },
-  { id: 'rcb', label: 'RCB', x: 62, y: 75 },
-  { id: 'rb',  label: 'RB',  x: 85, y: 72 },
-  { id: 'lm',  label: 'LM',  x: 22, y: 47 },
-  { id: 'cdm', label: 'CDM', x: 50, y: 52 },
-  { id: 'rm',  label: 'RM',  x: 78, y: 47 },
-  { id: 'lw',  label: 'LW',  x: 18, y: 20 },
-  { id: 'st',  label: 'ST',  x: 50, y: 15 },
-  { id: 'rw',  label: 'RW',  x: 82, y: 20 },
-];
-
 // ---- NAVIGATION ----
 const screens = { roster: 'roster-screen', shifts: 'shifts-screen', transitions: 'transitions-screen', playtime: 'playtime-screen' };
 
@@ -1558,7 +1782,7 @@ function showScreen(key) {
   document.getElementById(screens[key]).classList.add('active');
   document.querySelectorAll('.bottom-nav .nav-btn[data-screen]').forEach(b => b.classList.toggle('active', b.dataset.screen === key));
   document.getElementById('more-btn').classList.toggle('active', key === 'roster' || key === 'playtime');
-  if (key !== 'shifts') clearBenchSelection(false);
+  if (key !== 'shifts') { clearBenchSelection(false); formationEditing = false; }
   if (key === 'roster') renderRoster();
   if (key === 'shifts') renderShifts();
   if (key === 'transitions') renderTransitions();
@@ -1599,7 +1823,7 @@ function totalShifts() { return state.halves * state.shiftsPerHalf; }
 function shiftKey(i) { return `shift_${i}`; }
 function getShift(i) { return state.shifts[shiftKey(i)] || {}; }
 function shiftIsEmpty(i) { return Object.keys(getShift(i)).length === 0; }
-function shiftIsFull(i) { const s = getShift(i); return POSITIONS.every(p => s[p.id]); }
+function shiftIsFull(i) { const s = getShift(i); return state.formation.every(p => s[p.id]); }
 function halfOf(i) { return Math.floor(i / state.shiftsPerHalf); }
 function halfName(h) { return h === 0 ? '1st Half' : '2nd Half'; }
 function shiftDisplayName(i) { return `${halfName(halfOf(i))} · Shift ${(i % state.shiftsPerHalf) + 1}`; }
@@ -1699,6 +1923,8 @@ function renderRoster() {
   document.querySelectorAll('#sph-seg .seg-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.sph) === state.shiftsPerHalf));
   document.getElementById('sph-seg').classList.toggle('disabled', !!state.locked);
   document.getElementById('mph-value').textContent = String(state.minutesPerHalf);
+  document.getElementById('setup-formation-btn').textContent = `${formationName()}${matchingPreset() ? '' : ' (custom)'} ▾`;
+  document.getElementById('setup-formation-btn').disabled = !!state.locked;
   document.getElementById('mph-minus').disabled = !!state.locked || state.minutesPerHalf <= MPH_MIN;
   document.getElementById('mph-plus').disabled = !!state.locked || state.minutesPerHalf >= MPH_MAX;
   document.getElementById('setup-note').textContent =
@@ -1909,7 +2135,7 @@ function openSwapInModal(i, name, after) {
   const shift = getShift(i);
   const entries = Object.entries(shift).sort((a, b) => a[1].localeCompare(b[1]));
   const credit = plannedShifts();
-  const openPos = POSITIONS.find(p => !shift[p.id]);
+  const openPos = state.formation.find(p => !shift[p.id]);
   let html = `<div class="modal-note">${esc(shiftDisplayName(i))}${state.locked ? ' · allowed while locked' : ''}</div>`;
   if (openPos) html += `<div class="modal-player full-row" data-pos="${openPos.id}" style="background:var(--green);color:#06301a;">Open spot: ${fullPos(openPos.id)}</div>`;
   html += entries.map(([pos, n]) =>
@@ -1922,7 +2148,7 @@ function openSwapInModal(i, name, after) {
     s[el.dataset.pos] = name;
     saveShift(i);
     closeModal();
-    toast(el.dataset.out ? `${name} on for ${el.dataset.out} at ${el.dataset.pos.toUpperCase()}` : `${name} on at ${el.dataset.pos.toUpperCase()}`);
+    toast(el.dataset.out ? `${name} on for ${el.dataset.out} at ${posLabel(el.dataset.pos)}` : `${name} on at ${posLabel(el.dataset.pos)}`);
     if (after) after();
   }));
 }
@@ -1937,6 +2163,7 @@ function clearBenchSelection(rerender = true) {
 }
 
 function slotTapped(posId) {
+  if (formationEditing) return;
   if (editLocked()) return;
   if (selectedBench) {
     const name = selectedBench;
@@ -1948,7 +2175,7 @@ function slotTapped(posId) {
     shift[posId] = name;
     saveShift(currentShiftIndex);
     renderShifts();
-    toast(displaced ? `${name} in at ${posId.toUpperCase()} · ${displaced} to the bench` : `${name} in at ${posId.toUpperCase()}`);
+    toast(displaced ? `${name} in at ${posLabel(posId)} · ${displaced} to the bench` : `${name} in at ${posLabel(posId)}`);
     return;
   }
   openAssignModal(posId);
@@ -1965,8 +2192,10 @@ function renderField() {
   const subByPos = {};
   subs.forEach(s => { subByPos[s.pos] = s; });
   field.classList.toggle('placing', !!selectedBench);
+  field.classList.toggle('editing', formationEditing);
+  renderFormationBar();
 
-  field.innerHTML = POSITIONS.map(pos => {
+  field.innerHTML = positions().map(pos => {
     const player = shift[pos.id];
     const filledClass = player ? 'filled' : '';
     const sub = subByPos[pos.id];
@@ -1974,12 +2203,14 @@ function renderField() {
     const run = player ? playStreak(player, currentShiftIndex) : 0;
     const tired = run > PLAY_STREAK_LIMIT;
     const fatigueNote = tired ? `<span class="fatigue-note">\u{1FAAB} ${run} in a row</span>` : '';
-    return `<div class="field-slot" style="left:${pos.x}%;top:${pos.y}%;" data-pos="${pos.id}">
+    return `<div class="field-slot ${formationEditing && pos.id === 'gk' ? 'fixed' : ''}" style="left:${pos.x}%;top:${pos.y}%;" data-pos="${pos.id}">
       <span class="pos-label">${pos.label}</span>
       <span class="player-badge ${filledClass} ${tired ? 'tired' : ''}">${player ? esc(player) : '—'}</span>
       ${subNote}${fatigueNote}
     </div>`;
   }).join('');
+
+  if (formationEditing) { attachFormationDrag(field); return; }
 
   field.querySelectorAll('.field-slot').forEach(slot => {
     // --- Touch drag ---
@@ -2095,6 +2326,18 @@ function renderField() {
   });
 }
 
+// Formation strip under the field: the picker normally, Done while dragging spots
+function renderFormationBar() {
+  const btn = document.getElementById('formation-btn');
+  const bar = document.getElementById('formation-edit-bar');
+  document.getElementById('formation-btn-name').textContent = formationName();
+  btn.style.display = formationEditing ? 'none' : '';
+  document.getElementById('clear-shift-btn').style.display = formationEditing ? 'none' : '';
+  document.getElementById('copy-prev-btn').style.display = formationEditing ? 'none' : '';
+  bar.classList.toggle('show', formationEditing);
+  if (formationEditing) document.getElementById('formation-edit-name').textContent = formationName();
+}
+
 // Drag a player onto another spot: they swap if it's occupied, otherwise the
 // source spot opens up
 function completeDrop(sourcePos, targetPos) {
@@ -2158,6 +2401,7 @@ function renderBench() {
 
   benchList.querySelectorAll('.bench-player').forEach(el => {
     el.addEventListener('click', () => {
+      if (formationEditing) { toast('Tap Done on the formation first'); return; }
       if (editLocked()) return;
       const name = el.dataset.name;
       selectedBench = selectedBench === name ? null : name;
@@ -2171,7 +2415,7 @@ function renderBench() {
 function openAssignModal(posId) {
   if (editLocked()) return;
   const i = currentShiftIndex;
-  const pos = POSITIONS.find(p => p.id === posId);
+  const pos = positions().find(p => p.id === posId);
   const shift = getShift(i);
   const currentPlayer = shift[posId];
   const credit = plannedShifts();
@@ -2198,7 +2442,7 @@ function openAssignModal(posId) {
   if (fieldNames.length > 0) {
     html += `<div class="modal-divider">Already on the field — picking one moves them here</div>`;
     fieldNames.forEach(name => {
-      html += `<div class="modal-player dimmed" data-assign="${esc(name)}">${esc(name)} <span class="mp-meta">(${posByName[name].toUpperCase()})</span></div>`;
+      html += `<div class="modal-player dimmed" data-assign="${esc(name)}">${esc(name)} <span class="mp-meta">(${posLabel(posByName[name])})</span></div>`;
     });
   }
 
@@ -2250,6 +2494,17 @@ document.getElementById('copy-prev-btn').addEventListener('click', () => {
   saveShift(currentShiftIndex);
   renderShifts();
   toast('Copied — swap in the bench players who sat');
+});
+
+document.getElementById('formation-btn').addEventListener('click', openFormationModal);
+document.getElementById('setup-formation-btn').addEventListener('click', openFormationModal);
+document.getElementById('formation-done-btn').addEventListener('click', stopFormationEdit);
+document.getElementById('formation-reset-btn').addEventListener('click', () => {
+  const base = matchingPreset();
+  askConfirm('Reset to 4-3-3?', base ? null : 'Your custom spots will be replaced. Players carry over to the nearest spot.', 'Yes — reset', 'Cancel', () => {
+    applyFormation(presetSlots('433'));
+    renderShifts();
+  });
 });
 
 // =====================================================================
@@ -2590,7 +2845,7 @@ function computeTransition(prev, next) {
   Object.entries(prev).forEach(([p, n]) => { prevPos[n] = p; });
   Object.entries(next).forEach(([p, n]) => { nextPos[n] = p; });
   const comingOff = Object.keys(prevPos).filter(n => !nextPos[n]);
-  const comingOn = POSITIONS.map(p => next[p.id]).filter(n => n && !prevPos[n]);
+  const comingOn = state.formation.map(p => next[p.id]).filter(n => n && !prevPos[n]);
   const staying = Object.keys(prevPos).filter(n => nextPos[n]);
   const moving = staying.filter(n => prevPos[n] !== nextPos[n]);
   const same = staying.filter(n => prevPos[n] === nextPos[n]);
@@ -2633,7 +2888,7 @@ function renderTransitionDetail(toIndex) {
     </div>`;
   }
 
-  const openSpots = POSITIONS.filter(p => !next[p.id]);
+  const openSpots = state.formation.filter(p => !next[p.id]);
   if (openSpots.length > 0) {
     html += `<div class="transition-section">
       <div class="transition-item warn">⚠️ ${openSpots.length} open spot${openSpots.length > 1 ? 's' : ''} in ${shiftDisplayName(toIndex)}: ${openSpots.map(p => fullPos(p.id)).join(', ')} — fill on the Shifts tab</div>
@@ -2658,7 +2913,7 @@ function renderTransitionDetail(toIndex) {
   if (t.same.length > 0) {
     html += `<div class="transition-section">
       <h3 class="stay">STAYING PUT (${t.same.length})</h3>
-      <div class="transition-item stay">${t.same.map(n => `${esc(n)} <span class="transition-arrow">${t.prevPos[n].toUpperCase()}</span>`).join(' &nbsp;·&nbsp; ')}</div>
+      <div class="transition-item stay">${t.same.map(n => `${esc(n)} <span class="transition-arrow">${posLabel(t.prevPos[n])}</span>`).join(' &nbsp;·&nbsp; ')}</div>
     </div>`;
   }
 
@@ -2712,7 +2967,7 @@ function pickFillFor(idx, openPos, displacedName, moves, injured) {
   if (fieldOptions.length > 0) {
     html += `<div class="modal-divider">Or slide over an on-field player</div>`;
     fieldOptions.forEach(([p, n]) => {
-      html += `<div class="modal-player dimmed" data-field="${esc(n)}" data-frompos="${p}">${esc(n)} <span class="mp-meta">(from ${p.toUpperCase()})</span></div>`;
+      html += `<div class="modal-player dimmed" data-field="${esc(n)}" data-frompos="${p}">${esc(n)} <span class="mp-meta">(from ${posLabel(p)})</span></div>`;
     });
   }
   html += `<div class="modal-player full-row" data-leave-open="1" style="color:var(--gray);">Leave ${fullPos(openPos)} open</div>`;
@@ -2744,8 +2999,8 @@ function finalizeInjurySub(idx, injured, moves, entrant) {
   if (!state.midShiftSubs[key]) state.midShiftSubs[key] = [];
   state.midShiftSubs[key].push({ off: injured.name, on: entrant ? entrant.name : '', pos: entrant ? entrant.pos : injured.pos });
 
-  const parts = moves.map(m => `${m.player} → ${m.to.toUpperCase()}`);
-  if (entrant) parts.push(`${entrant.name} on at ${entrant.pos.toUpperCase()}`);
+  const parts = moves.map(m => `${m.player} → ${posLabel(m.to)}`);
+  if (entrant) parts.push(`${entrant.name} on at ${posLabel(entrant.pos)}`);
   const summary = parts.length ? parts.join(', ') : 'spot left open';
 
   persist({ [`shifts.${key}`]: shift, [`midShiftSubs.${key}`]: state.midShiftSubs[key] });
@@ -2904,11 +3159,13 @@ function renderPlaytime() {
 // ---- HELPERS ----
 function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
 const POS_FULL_NAMES = {
-  gk: 'Goalkeeper', lb: 'Left Back', lcb: 'Left Center Back', rcb: 'Right Center Back',
-  rb: 'Right Back', lm: 'Left Mid', cdm: 'Center Defensive Mid', rm: 'Right Mid',
-  lw: 'Left Wing', st: 'Striker', rw: 'Right Wing'
+  GK: 'Goalkeeper', LB: 'Left Back', RB: 'Right Back', CB: 'Center Back', LCB: 'Left Center Back', RCB: 'Right Center Back',
+  LWB: 'Left Wing Back', RWB: 'Right Wing Back', CDM: 'Center Defensive Mid', LDM: 'Left Defensive Mid', RDM: 'Right Defensive Mid',
+  LM: 'Left Mid', RM: 'Right Mid', CM: 'Center Mid', LCM: 'Left Center Mid', RCM: 'Right Center Mid',
+  CAM: 'Attacking Mid', LAM: 'Left Attacking Mid', RAM: 'Right Attacking Mid',
+  LW: 'Left Wing', RW: 'Right Wing', ST: 'Striker', LS: 'Left Striker', RS: 'Right Striker'
 };
-function fullPos(id) { return POS_FULL_NAMES[id] || id.toUpperCase(); }
+function fullPos(id) { const l = posLabel(id); return POS_FULL_NAMES[l] || l; }
 
 // ---- SERVICE WORKER ----
 if ('serviceWorker' in navigator) {
