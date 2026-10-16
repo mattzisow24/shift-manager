@@ -1025,6 +1025,182 @@ body {
   .auth-title { font-size: 22px; }
   .auth-btn { font-size: 14px; padding: 12px; }
 }
+
+/* --- PRINT BACKUP SHEET --- */
+/* Paper copy of the plan for when cell coverage drops at the field. On screen
+   it's a preview overlay with a Print button; in print it's the only thing on
+   the page. Black on white, light on ink. */
+.print-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: #4a4f57;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  color: #111;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.print-overlay.active { display: block; }
+.print-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
+  background: var(--black);
+  color: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+.print-toolbar .pt-title { font-weight: 700; font-size: 16px; }
+.print-toolbar .pt-hint { flex-basis: 100%; font-size: 12px; color: var(--gray); }
+.print-toolbar .spacer { flex: 1; }
+.print-sheets {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 12px calc(24px + env(safe-area-inset-bottom));
+}
+.sheet {
+  background: white;
+  color: #111;
+  width: 8.5in;
+  flex: none;
+  padding: 0.45in;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.45);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 11pt;
+  line-height: 1.25;
+}
+.sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 2.5px solid #111;
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+.sheet-head img { height: 42px; width: auto; }
+.sheet-head .sh-team { font-size: 20pt; font-weight: 800; letter-spacing: -0.3px; line-height: 1.1; }
+.sheet-head .sh-sub { font-size: 9.5pt; color: #444; margin-top: 2px; }
+.sheet-head .sh-right { margin-left: auto; text-align: right; font-size: 9pt; color: #444; white-space: nowrap; }
+.sheet-head .sh-page { font-weight: 800; color: #111; font-size: 12pt; text-transform: uppercase; letter-spacing: 1px; }
+.sheet-title {
+  font-size: 10pt;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: #333;
+  margin: 14px 0 6px;
+}
+.sheet-title:first-of-type { margin-top: 0; }
+.sheet-note { font-size: 9pt; color: #444; margin-top: 6px; line-height: 1.4; }
+.sheet-note b { color: #111; }
+
+/* Lineup grid: positions down, shifts across */
+.lineup-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 10.5pt; }
+.lineup-table th, .lineup-table td {
+  border: 1px solid #999;
+  padding: 4px 3px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lineup-table th { background: #e4e4e4; font-weight: 800; }
+.lineup-table th.half { font-size: 11pt; letter-spacing: 0.5px; }
+.lineup-table th .sh-time { display: block; font-weight: 500; font-size: 8pt; color: #444; }
+.lineup-table .half-start { border-left: 3px solid #111; }
+.lineup-table td.pos { background: #f2f2f2; font-weight: 800; text-align: left; padding-left: 6px; }
+.lineup-table td.pos small { display: block; font-weight: 500; font-size: 7pt; color: #555; letter-spacing: 0; white-space: normal; line-height: 1.1; }
+.lineup-table col.pos-col { width: 1.05in; }
+.lineup-table tr.gk td:not(.pos) { font-weight: 700; }
+.lineup-table td.open {
+  color: #888;
+  font-style: italic;
+  font-size: 8.5pt;
+  background: repeating-linear-gradient(45deg, #fff, #fff 3px, #ececec 3px, #ececec 6px);
+}
+.lineup-table tr.bench-row td { white-space: normal; font-size: 8.5pt; vertical-align: top; text-align: left; padding: 5px 5px; color: #222; line-height: 1.35; }
+.lineup-table tr.bench-row td.pos { vertical-align: middle; font-size: 10.5pt; }
+.lineup-table.cols-8 { font-size: 9pt; }
+.lineup-table.cols-8 th, .lineup-table.cols-8 td { padding: 3px 2px; }
+.lineup-table.cols-8 tr.bench-row td { font-size: 7.5pt; }
+
+/* Playing time strip */
+.pt-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px 16px; font-size: 9.5pt; }
+.pt-grid .pt-row { display: flex; justify-content: space-between; gap: 6px; border-bottom: 1px dotted #bbb; padding: 2px 0; }
+.pt-grid .pt-n { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pt-grid .pt-n small { font-weight: 500; color: #666; }
+
+/* Sub callouts: one card per shift change */
+.sub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.sub-card { border: 1.5px solid #111; border-radius: 6px; padding: 6px 9px 8px; break-inside: avoid; page-break-inside: avoid; }
+.sub-card.halftime { grid-column: 1 / -1; background: #f3f3f3; }
+.sub-card.halftime .sc-body { columns: 2; column-gap: 20px; }
+.sub-grid.compact .sub-card .sc-pair { font-size: 9.5pt; grid-template-columns: 1fr 14px 1fr; }
+.sub-grid.compact .sub-card .sc-moves { columns: 1; }
+.sub-grid.compact .sub-card.halftime .sc-body { columns: 3; }
+.sub-grid.compact .sub-card .sc-title { font-size: 11.5pt; }
+.sub-card .sc-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; border-bottom: 1px solid #999; padding-bottom: 3px; margin-bottom: 2px; }
+.sub-card .sc-title { font-weight: 800; font-size: 12.5pt; }
+.sub-card .sc-time { font-size: 9pt; color: #444; font-variant-numeric: tabular-nums; text-align: right; }
+.sub-card .sc-label { font-size: 7.5pt; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #555; margin: 5px 0 1px; break-after: avoid; }
+.sub-card .sc-pair { display: grid; grid-template-columns: 1fr 18px 1.2fr; align-items: baseline; gap: 4px; padding: 1.5px 0; border-bottom: 1px dotted #ccc; font-size: 10pt; break-inside: avoid; }
+.sub-card .sc-pair:last-child { border-bottom: 0; }
+.sub-card .sc-off { color: #444; text-align: right; }
+.sub-card .sc-arrow { text-align: center; color: #666; }
+.sub-card .sc-on { font-weight: 800; white-space: nowrap; }
+.sub-card .sc-pos { font-size: 8pt; color: #444; margin-left: 4px; white-space: nowrap; }
+.sub-card .sc-moves { columns: 2; column-gap: 12px; }
+.sub-card .sc-move, .sub-card .sc-stay, .sub-card .sc-none, .sub-card .sc-warn { font-size: 9.5pt; padding: 1px 0; line-height: 1.3; }
+.sub-card .sc-move { break-inside: avoid; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sub-card .sc-move .sc-pos { font-size: 9pt; font-weight: 700; color: #222; }
+.sub-card .sc-move b { font-weight: 800; }
+.sub-card .sc-none { color: #666; font-style: italic; }
+.sub-card .sc-warn { font-weight: 700; border: 1px dashed #777; padding: 3px 6px; margin-top: 4px; border-radius: 4px; }
+.sub-card .sc-head-pair { font-size: 7.5pt; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #555; border-bottom: 1px solid #ccc; }
+
+/* Field diagrams: one small pitch per shift, one row per half */
+.field-grid { display: grid; gap: 12px 14px; }
+.field-card { break-inside: avoid; page-break-inside: avoid; }
+.field-card .fc-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 9.5pt; margin-bottom: 3px; }
+.field-grid.compact .fc-head { flex-direction: column; align-items: flex-start; gap: 0; }
+.field-card .fc-head b { font-size: 10.5pt; }
+.field-card .fc-head span { color: #444; font-variant-numeric: tabular-nums; }
+.field-card .fc-bench { font-size: 8.5pt; color: #222; margin-top: 4px; line-height: 1.35; }
+.field-card .fc-bench b { font-weight: 800; }
+.mini-field { width: 100%; height: auto; display: block; background: #fafafa; }
+.mini-field .mf-line { fill: none; stroke: #777; stroke-width: 0.8; }
+.mini-field .mf-goal { fill: #777; }
+.mini-field text { text-anchor: middle; paint-order: stroke; stroke: #fafafa; stroke-width: 2.2; stroke-linejoin: round; }
+.mini-field .mf-pos { font-size: 3.6px; font-weight: 700; fill: #666; letter-spacing: 0.2px; }
+.mini-field .mf-name { font-size: 5.2px; font-weight: 800; fill: #111; }
+.mini-field .mf-name.mf-open { fill: #999; font-weight: 500; font-style: italic; }
+.mini-field .mf-empty { font-size: 6px; fill: #999; font-style: italic; }
+
+@page { size: letter portrait; margin: 0.4in; }
+@media print {
+  html, body { overflow: visible !important; height: auto !important; background: white !important; color: #111 !important; }
+  body > *:not(#print-overlay) { display: none !important; }
+  .print-overlay { display: block !important; position: static !important; background: white !important; overflow: visible !important; }
+  .print-toolbar { display: none !important; }
+  .print-sheets { display: block !important; padding: 0 !important; zoom: 1 !important; }
+  .sheet {
+    box-shadow: none !important;
+    width: auto !important;
+    padding: 0 !important;
+    break-after: page;
+    page-break-after: always;
+  }
+  .sheet:last-child { break-after: auto; page-break-after: auto; }
+  .sheet, .sheet * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
 </style>
 </head>
 <body>
@@ -1066,6 +1242,7 @@ body {
       <span style="margin-left:auto;display:flex;gap:8px;">
         <button class="btn btn-sm btn-ghost" id="roster-edit-btn">Edit Roster</button>
         <button class="btn btn-sm btn-ghost" id="new-game-btn">New Game</button>
+        <button class="btn btn-sm btn-ghost" id="print-btn" title="Paper copy of the lineups and subs">Print backup</button>
       </span>
     </div>
     <div class="add-player-row" id="add-player-row" style="display:none;">
@@ -1165,6 +1342,19 @@ body {
     <div id="modal-players"></div>
     <button class="modal-close" id="modal-close">Cancel</button>
   </div>
+</div>
+
+<!-- PRINT BACKUP: on-screen preview of the paper game sheet -->
+<div class="print-overlay" id="print-overlay">
+  <div class="print-toolbar">
+    <span class="pt-title">Print backup</span>
+    <span class="spacer"></span>
+    <button class="btn btn-sm btn-ghost" id="print-close">Close</button>
+    <button class="btn btn-sm btn-ghost" id="print-safari" style="display:none;">Open in Safari</button>
+    <button class="btn btn-sm btn-primary" id="print-go">Print&hellip;</button>
+    <span class="pt-hint" id="print-hint">Three pages: lineups, sub callouts, field diagrams. Prints black-and-white on letter paper.</span>
+  </div>
+  <div class="print-sheets" id="print-sheets"></div>
 </div>
 
 <!-- TOAST -->
@@ -1450,6 +1640,7 @@ function enterTeam(team) {
       try { localStorage.setItem(localKey('state'), JSON.stringify(state)); } catch {}
       setSyncStatus(doc.metadata.fromCache ? 'offline' : 'online');
       renderAll();
+      if (pendingPrintRequest) { pendingPrintRequest = false; openPrintPreview(); }
       // A brand-new team has no players yet: start on the roster screen
       if (state.roster.length === 0 && !document.getElementById('roster-screen').classList.contains('active')) showScreen('roster');
     } else {
@@ -1487,6 +1678,7 @@ function renderActiveScreen() {
   if (active.id === 'transitions-screen') renderTransitions();
   if (active.id === 'playtime-screen') renderPlaytime();
   if (active.id === 'roster-screen') renderRoster();
+  if (printPreviewOpen()) refreshPrintPreview();
 }
 
 // ---- TOAST ----
@@ -1574,10 +1766,12 @@ document.getElementById('more-btn').addEventListener('click', () => {
   const list = openModal(currentTeam ? currentTeam.name : 'Menu', `
     <div class="modal-player full-row" data-goto="roster">Game Setup</div>
     <div class="modal-player full-row" data-goto="playtime">Play Time</div>
+    <div class="modal-player full-row" id="menu-print">Print backup sheet</div>
     <div class="modal-divider">Team</div>
     <div class="modal-note">Team code: <b style="color:white;letter-spacing:1px;">${esc(currentTeam ? currentTeam.code : '')}</b> — share it with new coaches</div>
     <div class="modal-player full-row dimmed" id="menu-switch">Switch team…</div>`);
   list.querySelectorAll('[data-goto]').forEach(el => el.addEventListener('click', () => { closeModal(); showScreen(el.dataset.goto); }));
+  document.getElementById('menu-print').addEventListener('click', () => { closeModal(); openPrintPreview(); });
   // Switching always goes through the code screen, so nobody lands on the
   // other team by accident. The team's data stays in the cloud.
   document.getElementById('menu-switch').addEventListener('click', () => { closeModal(); confirmSwitchTeam(); });
@@ -2900,6 +3094,214 @@ function renderPlaytime() {
     </div>`;
   }).join('');
 }
+
+// ---- PRINT BACKUP ----
+// A paper copy of the plan for when cell coverage drops at the field: the
+// lineup grid, the sub callout for every shift change, and a field diagram
+// per shift. Built from the shared state the moment it's opened; times are
+// minutes into the half so they work against the ref's clock or a watch.
+const isStandaloneApp = window.navigator.standalone === true ||
+  (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+
+function printRange(n) { return Array.from({ length: n }, (_, i) => i); }
+function benchFor(i) {
+  const on = new Set(Object.values(getShift(i)));
+  return state.checkedIn.filter(n => !on.has(n)).sort((a, b) => a.localeCompare(b));
+}
+
+function buildPrintSheets() {
+  const total = totalShifts();
+  const sph = state.shiftsPerHalf;
+  const dur = shiftDuration();
+  const team = currentTeam || { name: 'Shift Manager', logo: 'bays.png' };
+  const printedAt = new Date().toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const intoHalf = i => fmtClock((i % sph) * dur);            // clock at the start of shift i, within its half
+  const endIntoHalf = i => fmtClock(((i % sph) + 1) * dur);
+  const halfStart = i => (i % sph === 0 && i > 0) ? 'half-start' : '';
+  const PAGES = 3;
+
+  const head = (n, title) => `<div class="sheet-head">
+    <img src="${esc(team.logo)}" alt="">
+    <div>
+      <div class="sh-team">${esc(team.name)}</div>
+      <div class="sh-sub">${state.halves} halves · ${sph} shifts of ${fmtClock(dur)} per half (${state.minutesPerHalf} min) · ${state.checkedIn.length} players checked in</div>
+    </div>
+    <div class="sh-right"><div class="sh-page">${title}</div>Printed ${esc(printedAt)}<br>Page ${n} of ${PAGES}</div>
+  </div>`;
+
+  // ---- Page 1: lineup grid + bench + playing time ----
+  const halfHeaders = printRange(state.halves).map(h =>
+    `<th class="half ${h > 0 ? 'half-start' : ''}" colspan="${sph}">${halfName(h)}</th>`).join('');
+  const shiftHeaders = printRange(total).map(i =>
+    `<th class="${halfStart(i)}">Shift ${(i % sph) + 1}<span class="sh-time">${shiftIsEmpty(i) ? 'not planned' : `${intoHalf(i)}–${endIntoHalf(i)}`}</span></th>`).join('');
+  const posRows = POSITIONS.map(p => `<tr class="${p.id === 'gk' ? 'gk' : ''}">
+    <td class="pos">${p.label}<small>${fullPos(p.id)}</small></td>` +
+    printRange(total).map(i => {
+      if (shiftIsEmpty(i)) return `<td class="open ${halfStart(i)}"></td>`;
+      const n = getShift(i)[p.id];
+      return n ? `<td class="${halfStart(i)}">${esc(n)}</td>` : `<td class="open ${halfStart(i)}">open</td>`;
+    }).join('') + '</tr>').join('');
+  const benchRow = `<tr class="bench-row"><td class="pos">Bench</td>` +
+    printRange(total).map(i => {
+      if (shiftIsEmpty(i)) return `<td class="open ${halfStart(i)}"></td>`;
+      const b = benchFor(i);
+      return `<td class="${halfStart(i)}">${b.length ? b.map(esc).join('<br>') : '—'}</td>`;
+    }).join('') + '</tr>';
+  const lineupTable = `<table class="lineup-table ${total >= 8 ? 'cols-8' : ''}">
+    <colgroup><col class="pos-col">${printRange(total).map(() => '<col>').join('')}</colgroup>
+    <thead><tr><th></th>${halfHeaders}</tr><tr><th>Position</th>${shiftHeaders}</tr></thead>
+    <tbody>${posRows}${benchRow}</tbody></table>`;
+
+  // In-shift (injury) subs already made: the lineup shows the entrant, so note who they replaced
+  const subNotes = [];
+  Object.keys(state.midShiftSubs || {}).forEach(k => {
+    const idx = parseInt(k.split('_')[1]);
+    if (isNaN(idx) || idx >= total) return;
+    (state.midShiftSubs[k] || []).forEach(s => {
+      subNotes.push(`<b>${esc(shiftDisplayName(idx))}:</b> ${esc(s.off)} off → ${s.on ? `${esc(s.on)} on at ${esc(fullPos(s.pos))}` : 'spot left open'}`);
+    });
+  });
+  const subNotesHtml = subNotes.length ? `<div class="sheet-note">In-shift subs already made: ${subNotes.join(' · ')}</div>` : '';
+
+  let playtime = '<div class="sheet-note">Nobody checked in yet.</div>';
+  if (state.checkedIn.length > 0) {
+    const credit = plannedShifts();
+    const sorted = state.checkedIn.slice().sort((a, b) => (credit[a] - credit[b]) || a.localeCompare(b));
+    const minsPerShift = state.minutesPerHalf / sph;
+    playtime = `<div class="pt-grid">${sorted.map(n =>
+      `<div class="pt-row"><span>${esc(n)}</span><span class="pt-n">${fmtShifts(credit[n])}<small>/${total} · ~${Math.round(credit[n] * minsPerShift)}m</small></span></div>`).join('')}</div>`;
+  }
+
+  const unplanned = printRange(total).filter(i => shiftIsEmpty(i)).length;
+  const page1 = `<div class="sheet">${head(1, 'Lineups')}
+    <div class="sheet-title">Lineups by shift</div>
+    ${lineupTable}
+    ${unplanned ? `<div class="sheet-note"><b>${unplanned} shift${unplanned > 1 ? 's' : ''} not planned yet</b> — the striped columns are blank until they're filled in on the Shifts tab.</div>` : ''}
+    ${subNotesHtml}
+    <div class="sheet-title">Playing time (planned shifts)</div>
+    ${playtime}
+  </div>`;
+
+  // ---- Page 2: sub callouts, one card per shift change ----
+  // With 4 shifts per half the cards go three to a row (one row per half)
+  // and use position codes so seven callouts still fit on one page
+  const compact = sph >= 4;
+  const posName = id => compact ? id.toUpperCase() : fullPos(id);
+  const cards = [];
+  for (let t = 1; t < total; t++) {
+    const prev = getShift(t - 1), next = getShift(t);
+    const isHT = t % sph === 0;
+    const title = isHT ? 'Halftime' : `Shift ${t % sph} → ${t % sph + 1}`;
+    const when = isHT ? `into ${halfName(halfOf(t))} · Shift 1` : `${halfName(halfOf(t))} · at ${intoHalf(t)}`;
+    let body = '';
+    if (Object.keys(prev).length === 0 || Object.keys(next).length === 0) {
+      body = `<div class="sc-none">${shiftDisplayName(t - 1)} or ${shiftDisplayName(t)} isn't planned yet.</div>`;
+    } else {
+      const tr = computeTransition(prev, next);
+      const open = POSITIONS.filter(p => !next[p.id]);
+      if (open.length) body += `<div class="sc-warn">${open.length} open spot${open.length > 1 ? 's' : ''} in ${shiftDisplayName(t)}: ${open.map(p => fullPos(p.id)).join(', ')}</div>`;
+      if (tr.pairs.length) {
+        body += `<div class="sc-label">Subs (${tr.pairs.length})</div>
+          <div class="sc-pair sc-head-pair"><span class="sc-off">Off</span><span></span><span>On</span></div>` +
+          tr.pairs.map(p => `<div class="sc-pair">
+            <span class="sc-off">${p.off ? esc(p.off) : '<i>spot was open</i>'}</span><span class="sc-arrow">→</span>
+            <span>${p.on ? `<span class="sc-on">${esc(p.on)}</span><span class="sc-pos">${posName(p.pos)}</span>` : '<i>leave open</i>'}</span>
+          </div>`).join('');
+      }
+      if (tr.moving.length) {
+        body += `<div class="sc-label">Switching position (${tr.moving.length})</div><div class="sc-moves">` +
+          tr.moving.map(n => `<div class="sc-move"><b>${esc(n)}</b> <span class="sc-pos">${tr.prevPos[n].toUpperCase()} → ${tr.nextPos[n].toUpperCase()}</span></div>`).join('') + '</div>';
+      }
+      if (tr.same.length) {
+        body += `<div class="sc-label">Staying put (${tr.same.length})</div>
+          <div class="sc-stay">${tr.same.map(n => `${esc(n)} <span class="sc-pos">${tr.prevPos[n].toUpperCase()}</span>`).join(' · ')}</div>`;
+      }
+      if (!body) body = '<div class="sc-none">No changes — same eleven, same spots.</div>';
+    }
+    cards.push(`<div class="sub-card ${isHT ? 'halftime' : ''}">
+      <div class="sc-head"><span class="sc-title">${title}</span><span class="sc-time">${when}</span></div>
+      <div class="sc-body">${body}</div>
+    </div>`);
+  }
+  const page2 = `<div class="sheet">${head(2, 'Substitutions')}
+    <div class="sheet-title">Who comes off, who goes on, at each shift change</div>
+    ${cards.length ? `<div class="sub-grid ${compact ? 'compact' : ''}" style="grid-template-columns:repeat(${Math.max(2, sph - 1)}, 1fr);">${cards.join('')}</div>` : '<div class="sheet-note">Only one shift — no shift changes.</div>'}
+    <div class="sheet-note">Times are minutes into the half. Shifts are ${fmtClock(dur)} long; the ${sph > 1 ? `sub windows are at ${printRange(sph - 1).map(k => fmtClock((k + 1) * dur)).join(', ')} of each half` : 'only change is at halftime'}.</div>
+  </div>`;
+
+  // ---- Page 3: a small pitch per shift, one row per half ----
+  const miniField = i => {
+    const s = getShift(i);
+    const lines = `<rect x="2" y="2" width="96" height="108" rx="1.5" class="mf-line"/>
+      <line x1="2" y1="56" x2="98" y2="56" class="mf-line"/>
+      <circle cx="50" cy="56" r="8.5" class="mf-line"/>
+      <rect x="26" y="2" width="48" height="15" class="mf-line"/>
+      <rect x="26" y="95" width="48" height="15" class="mf-line"/>
+      <rect x="40" y="0.6" width="20" height="1.6" class="mf-goal"/>
+      <rect x="40" y="109.8" width="20" height="1.6" class="mf-goal"/>`;
+    let marks;
+    if (shiftIsEmpty(i)) {
+      marks = `<text class="mf-empty" x="50" y="58">not planned yet</text>`;
+    } else {
+      marks = POSITIONS.map(p => {
+        const cy = 6 + p.y;
+        const n = s[p.id];
+        // nudge long names in from the touchline (~1.5 units per character each side)
+        const hw = (n ? n.length : 4) * 1.5;
+        const cx = Math.max(3 + hw, Math.min(97 - hw, p.x));
+        return `<text class="mf-pos" x="${cx}" y="${cy - 4}">${p.label}</text>
+          <text class="mf-name ${n ? '' : 'mf-open'}" x="${cx}" y="${cy + 2.5}">${n ? esc(n) : 'open'}</text>`;
+      }).join('');
+    }
+    return `<svg class="mini-field" viewBox="0 0 100 112" xmlns="http://www.w3.org/2000/svg">${lines}${marks}</svg>`;
+  };
+  const fieldCards = printRange(total).map(i => {
+    const b = benchFor(i);
+    return `<div class="field-card">
+      <div class="fc-head"><b>${esc(shiftDisplayName(i))}</b><span>${shiftIsEmpty(i) ? '' : `${intoHalf(i)}–${endIntoHalf(i)}`}</span></div>
+      ${miniField(i)}
+      <div class="fc-bench"><b>Bench:</b> ${shiftIsEmpty(i) ? '—' : (b.length ? b.map(esc).join(', ') : 'nobody')}</div>
+    </div>`;
+  }).join('');
+  const page3 = `<div class="sheet">${head(3, 'Field by shift')}
+    <div class="sheet-title">Where everyone stands, shift by shift (attacking up the page)</div>
+    <div class="field-grid ${sph >= 4 ? 'compact' : ''}" style="grid-template-columns:repeat(${sph}, 1fr);">${fieldCards}</div>
+  </div>`;
+
+  return page1 + page2 + page3;
+}
+
+function printPreviewOpen() { return document.getElementById('print-overlay').classList.contains('active'); }
+function refreshPrintPreview() { document.getElementById('print-sheets').innerHTML = buildPrintSheets(); }
+// On a phone the letter-size page is scaled down to fit the screen width, so
+// one screenshot captures one whole page
+function fitPrintPreview() {
+  const sheets = document.getElementById('print-sheets');
+  sheets.style.zoom = Math.min(1, (window.innerWidth - 20) / 816);
+}
+function openPrintPreview() {
+  refreshPrintPreview();
+  fitPrintPreview();
+  document.getElementById('print-overlay').classList.add('active');
+  document.getElementById('print-overlay').scrollTop = 0;
+}
+window.addEventListener('resize', () => { if (printPreviewOpen()) fitPrintPreview(); });
+function closePrintPreview() { document.getElementById('print-overlay').classList.remove('active'); }
+
+document.getElementById('print-btn').addEventListener('click', openPrintPreview);
+document.getElementById('print-close').addEventListener('click', closePrintPreview);
+document.getElementById('print-go').addEventListener('click', () => window.print());
+
+// Home-screen (standalone) iOS web apps can't bring up the print sheet, so
+// offer to open the same page in Safari, where ?print=1 reopens this preview
+if (isStandaloneApp) {
+  const btn = document.getElementById('print-safari');
+  btn.style.display = '';
+  btn.addEventListener('click', () => window.open(`${location.origin}${location.pathname}?print=1`, '_blank'));
+  document.getElementById('print-hint').textContent = 'If Print… does nothing in the home-screen app, use Open in Safari and print from there (or screenshot each page).';
+}
+let pendingPrintRequest = /[?&]print=1/.test(location.search);
+if (pendingPrintRequest) { try { history.replaceState(null, '', location.pathname); } catch {} }
 
 // ---- HELPERS ----
 function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
