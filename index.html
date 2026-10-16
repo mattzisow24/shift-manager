@@ -1432,7 +1432,7 @@ body {
     <span class="pt-title">Print backup</span>
     <span class="spacer"></span>
     <button class="btn btn-sm btn-ghost" id="print-close">Close</button>
-    <button class="btn btn-sm btn-ghost" id="print-safari" style="display:none;">Open in Safari</button>
+    <a class="btn btn-sm btn-primary" id="print-safari" target="_blank" rel="noopener" style="display:none;text-decoration:none;">Open in Safari to print</a>
     <button class="btn btn-sm btn-primary" id="print-go">Print&hellip;</button>
     <span class="pt-hint" id="print-hint">Three pages: lineups, sub callouts, field diagrams. Prints black-and-white on letter paper.</span>
   </div>
@@ -3721,6 +3721,7 @@ function fitPrintPreview() {
   sheets.style.zoom = Math.min(1, (window.innerWidth - 20) / 816);
 }
 function openPrintPreview() {
+  if (isStandaloneApp) document.getElementById('print-safari').href = printLinkURL();
   refreshPrintPreview();
   fitPrintPreview();
   document.getElementById('print-overlay').classList.add('active');
@@ -3733,16 +3734,31 @@ document.getElementById('print-btn').addEventListener('click', openPrintPreview)
 document.getElementById('print-close').addEventListener('click', closePrintPreview);
 document.getElementById('print-go').addEventListener('click', () => window.print());
 
-// Home-screen (standalone) iOS web apps can't bring up the print sheet, so
-// offer to open the same page in Safari, where ?print=1 reopens this preview
-if (isStandaloneApp) {
-  const btn = document.getElementById('print-safari');
-  btn.style.display = '';
-  btn.addEventListener('click', () => window.open(`${location.origin}${location.pathname}?print=1`, '_blank'));
-  document.getElementById('print-hint').textContent = 'If Print… does nothing in the home-screen app, use Open in Safari and print from there (or screenshot each page).';
+// Home-screen (standalone) iOS web apps ignore window.print() and
+// script-opened windows, and don't share storage with Safari. So the app
+// offers a real link instead, to the project's other Firebase domain (out of
+// the app's scope, so iOS opens it in Safari) carrying the team code, where
+// ?print=1 reopens this preview.
+function printLinkURL() {
+  const h = location.hostname;
+  const alt = h.endsWith('.web.app') ? h.replace(/\.web\.app$/, '.firebaseapp.com')
+    : h.endsWith('.firebaseapp.com') ? h.replace(/\.firebaseapp\.com$/, '.web.app') : h;
+  return `${location.protocol}//${alt}${location.port ? ':' + location.port : ''}/?print=1&team=${encodeURIComponent(currentTeam ? currentTeam.id : '')}`;
 }
-let pendingPrintRequest = /[?&]print=1/.test(location.search);
-if (pendingPrintRequest) { try { history.replaceState(null, '', location.pathname); } catch {} }
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+if (isStandaloneApp) {
+  document.getElementById('print-safari').style.display = '';
+  document.getElementById('print-go').style.display = 'none';
+  document.getElementById('print-hint').textContent = 'Printing only works in Safari, not the home-screen app. Tap Open in Safari to print, then Print… there. Or screenshot each page.';
+} else if (isIOS) {
+  document.getElementById('print-hint').textContent = 'Tap Print…. If nothing happens, use the Share button (the square with the arrow) → Print.';
+}
+const launchParams = new URLSearchParams(location.search);
+let pendingPrintRequest = launchParams.get('print') === '1';
+const linkedTeamId = normalizeCode(launchParams.get('team') || '');
+if (location.search) { try { history.replaceState(null, '', location.pathname); } catch {} }
+// Offline or slow: open the preview from whatever is cached rather than never
+if (pendingPrintRequest) setTimeout(() => { if (pendingPrintRequest && currentTeam) { pendingPrintRequest = false; openPrintPreview(); } }, 5000);
 
 // ---- HELPERS ----
 function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
@@ -3781,6 +3797,8 @@ ensureTicking();
 
 // Boot: reopen the last team used on this phone, otherwise ask for a code
 (function boot() {
+  // Arrived from the home-screen app's "Open in Safari to print" link
+  if (linkedTeamId && TEAM_PRESETS[linkedTeamId]) { joinTeam(linkedTeamId); return; }
   let last = null;
   try { last = localStorage.getItem('shift-manager:last-team'); } catch {}
   const ids = joinedTeamIds();
